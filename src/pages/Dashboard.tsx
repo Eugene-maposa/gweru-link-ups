@@ -18,7 +18,7 @@ const Dashboard = () => {
       employer: "ABC Construction",
       location: "City Center",
       distance: "0.5 km",
-      pay: "ZWL 15,000/day",
+      pay: "$15/day",
       duration: "3 days",
       rating: 4.8,
       posted: "2 hours ago"
@@ -29,7 +29,7 @@ const Dashboard = () => {
       employer: "Green Spaces Ltd",
       location: "Suburbs",
       distance: "1.2 km",
-      pay: "ZWL 8,000/day",
+      pay: "$8/day",
       duration: "1 day",
       rating: 4.5,
       posted: "5 hours ago"
@@ -40,10 +40,32 @@ const Dashboard = () => {
       employer: "Sarah Johnson",
       location: "Kumalo",
       distance: "2.1 km",
-      pay: "ZWL 12,000/day",
+      pay: "$12/day",
       duration: "1 day",
       rating: 4.9,
       posted: "1 day ago"
+    },
+    {
+      id: 4,
+      title: "Warehouse Loading",
+      employer: "StoreCorp",
+      location: "City Center",
+      distance: "0.8 km",
+      pay: "$10/day",
+      duration: "Ongoing",
+      rating: 4.6,
+      posted: "2 days ago"
+    },
+    {
+      id: 5,
+      title: "Event Setup Helper",
+      employer: "Events Plus",
+      location: "Nkulumane",
+      distance: "3.2 km",
+      pay: "$14/day",
+      duration: "2 days",
+      rating: 4.7,
+      posted: "3 days ago"
     }
   ];
 
@@ -63,6 +85,14 @@ const Dashboard = () => {
       appliedDate: "2024-01-08"
     }
   ];
+
+  const handleJobClick = (jobId: number) => {
+    navigate(`/job/${jobId}`);
+  };
+
+  const handleApplyNow = (jobId: number) => {
+    navigate(`/job/${jobId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -123,6 +153,10 @@ const Dashboard = () => {
                     <span className="text-sm text-gray-600">Response Rate</span>
                     <span className="font-semibold">95%</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Total Earned</span>
+                    <span className="font-semibold text-green-600">$1,250</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -140,22 +174,28 @@ const Dashboard = () => {
               <TabsContent value="nearby" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Jobs Near You</h3>
-                  <Button variant="outline" size="sm">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Update Location
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate('/find-work')}>
+                      <Search className="h-4 w-4 mr-2" />
+                      View All Jobs
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Update Location
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="space-y-4">
                   {nearbyJobs.map((job) => (
-                    <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                    <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleJobClick(job.id)}>
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h4 className="font-semibold text-lg">{job.title}</h4>
                             <p className="text-gray-600">{job.employer}</p>
                           </div>
-                          <Badge variant="secondary">{job.pay}</Badge>
+                          <Badge variant="secondary" className="text-green-600 bg-green-50">{job.pay}</Badge>
                         </div>
                         
                         <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
@@ -175,7 +215,14 @@ const Dashboard = () => {
                         
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-500">Posted {job.posted}</span>
-                          <Button size="sm">Apply Now</Button>
+                          <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="outline" size="sm" onClick={() => handleJobClick(job.id)}>
+                              View Details
+                            </Button>
+                            <Button size="sm" onClick={() => handleApplyNow(job.id)}>
+                              Apply Now
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -184,10 +231,13 @@ const Dashboard = () => {
               </TabsContent>
 
               <TabsContent value="applications" className="space-y-4">
-                <h3 className="text-lg font-semibold">My Job Applications</h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">My Job Applications</h3>
+                  <Badge variant="outline">{myApplications.length} Applications</Badge>
+                </div>
                 <div className="space-y-4">
                   {myApplications.map((application) => (
-                    <Card key={application.id}>
+                    <Card key={application.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                           <div>
@@ -195,11 +245,17 @@ const Dashboard = () => {
                             <p className="text-gray-600">{application.employer}</p>
                             <p className="text-sm text-gray-500">Applied on {application.appliedDate}</p>
                           </div>
-                          <Badge 
-                            variant={application.status === 'accepted' ? 'default' : 'secondary'}
-                          >
-                            {application.status}
-                          </Badge>
+                          <div className="flex flex-col items-end space-y-2">
+                            <Badge 
+                              variant={application.status === 'accepted' ? 'default' : 'secondary'}
+                              className={application.status === 'accepted' ? 'bg-green-500' : ''}
+                            >
+                              {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                            </Badge>
+                            <Button variant="outline" size="sm">
+                              View Application
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -214,18 +270,28 @@ const Dashboard = () => {
                     <div className="space-y-4">
                       <div className="border-l-4 border-blue-500 pl-4">
                         <p className="font-medium">New job posted near you</p>
-                        <p className="text-sm text-gray-600">Construction Helper in City Center</p>
+                        <p className="text-sm text-gray-600">Construction Helper in City Center - $15/day</p>
                         <p className="text-xs text-gray-500">2 hours ago</p>
                       </div>
                       <div className="border-l-4 border-green-500 pl-4">
                         <p className="font-medium">Application accepted</p>
-                        <p className="text-sm text-gray-600">Event Setup job by Events Plus</p>
+                        <p className="text-sm text-gray-600">Event Setup job by Events Plus - $14/day</p>
                         <p className="text-xs text-gray-500">1 day ago</p>
                       </div>
                       <div className="border-l-4 border-yellow-500 pl-4">
                         <p className="font-medium">New message received</p>
-                        <p className="text-sm text-gray-600">From ABC Construction</p>
+                        <p className="text-sm text-gray-600">From ABC Construction about Construction Helper role</p>
                         <p className="text-xs text-gray-500">2 days ago</p>
+                      </div>
+                      <div className="border-l-4 border-purple-500 pl-4">
+                        <p className="font-medium">Profile viewed</p>
+                        <p className="text-sm text-gray-600">Green Spaces Ltd viewed your profile</p>
+                        <p className="text-xs text-gray-500">3 days ago</p>
+                      </div>
+                      <div className="border-l-4 border-indigo-500 pl-4">
+                        <p className="font-medium">Job completed</p>
+                        <p className="text-sm text-gray-600">Moving Assistant job completed - Earned $12</p>
+                        <p className="text-xs text-gray-500">1 week ago</p>
                       </div>
                     </div>
                   </CardContent>
