@@ -85,8 +85,8 @@ const FindWork = () => {
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.employer.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !selectedCategory || job.category === selectedCategory;
-    const matchesLocation = !selectedLocation || job.location === selectedLocation;
+    const matchesCategory = !selectedCategory || selectedCategory === "all" || job.category === selectedCategory;
+    const matchesLocation = !selectedLocation || selectedLocation === "all" || job.location === selectedLocation;
     
     return matchesSearch && matchesCategory && matchesLocation;
   });
@@ -132,7 +132,7 @@ const FindWork = () => {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="Construction">Construction</SelectItem>
                   <SelectItem value="Gardening">Gardening</SelectItem>
                   <SelectItem value="Moving">Moving</SelectItem>
@@ -146,7 +146,7 @@ const FindWork = () => {
                   <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Locations</SelectItem>
+                  <SelectItem value="all">All Locations</SelectItem>
                   <SelectItem value="City Center">City Center</SelectItem>
                   <SelectItem value="Suburbs">Suburbs</SelectItem>
                   <SelectItem value="Kumalo">Kumalo</SelectItem>
