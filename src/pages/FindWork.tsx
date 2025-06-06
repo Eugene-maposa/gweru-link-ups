@@ -4,15 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, MapPin, Clock, Star, Filter } from "lucide-react";
+import { ArrowLeft, Search, Filter } from "lucide-react";
+import JobCard from "@/components/JobCard";
 
 const FindWork = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
 
   const jobs = [
     {
@@ -79,6 +80,32 @@ const FindWork = () => {
       posted: "3 days ago",
       category: "Events",
       description: "Setting up chairs, tables, and decorations for wedding event."
+    },
+    {
+      id: 6,
+      title: "House Cleaning Service",
+      employer: "Clean & Shine",
+      location: "Luveve",
+      distance: "4.1 km",
+      pay: "ZWL 6,000/day",
+      duration: "Half day",
+      rating: 4.3,
+      posted: "4 days ago",
+      category: "Cleaning",
+      description: "Deep cleaning of residential property. Experience with cleaning supplies preferred."
+    },
+    {
+      id: 7,
+      title: "Delivery Driver Helper",
+      employer: "Fast Delivery Co",
+      location: "Mpopoma",
+      distance: "2.8 km",
+      pay: "ZWL 9,000/day",
+      duration: "1 day",
+      rating: 4.4,
+      posted: "1 week ago",
+      category: "Delivery",
+      description: "Assist delivery driver with loading, unloading, and navigating routes."
     }
   ];
 
@@ -89,6 +116,20 @@ const FindWork = () => {
     const matchesLocation = !selectedLocation || selectedLocation === "all" || job.location === selectedLocation;
     
     return matchesSearch && matchesCategory && matchesLocation;
+  });
+
+  // Sort jobs based on selected criteria
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    switch (sortBy) {
+      case "pay":
+        return parseInt(b.pay.replace(/[^\d]/g, '')) - parseInt(a.pay.replace(/[^\d]/g, ''));
+      case "rating":
+        return b.rating - a.rating;
+      case "distance":
+        return parseFloat(a.distance) - parseFloat(b.distance);
+      default: // newest
+        return new Date(b.posted).getTime() - new Date(a.posted).getTime();
+    }
   });
 
   return (
@@ -118,7 +159,7 @@ const FindWork = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="md:col-span-2">
                 <Input
                   placeholder="Search jobs or employers..."
@@ -139,6 +180,7 @@ const FindWork = () => {
                   <SelectItem value="Warehouse">Warehouse</SelectItem>
                   <SelectItem value="Events">Events</SelectItem>
                   <SelectItem value="Cleaning">Cleaning</SelectItem>
+                  <SelectItem value="Delivery">Delivery</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
@@ -156,6 +198,17 @@ const FindWork = () => {
                   <SelectItem value="Entumbane">Entumbane</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="pay">Highest Pay</SelectItem>
+                  <SelectItem value="rating">Best Rating</SelectItem>
+                  <SelectItem value="distance">Closest</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -163,7 +216,7 @@ const FindWork = () => {
         {/* Results */}
         <div className="mb-4 flex justify-between items-center">
           <h2 className="text-lg font-semibold">
-            {filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''} Found
+            {sortedJobs.length} Job{sortedJobs.length !== 1 ? 's' : ''} Found
           </h2>
           <Button variant="outline" size="sm">
             <Filter className="h-4 w-4 mr-2" />
@@ -173,51 +226,12 @@ const FindWork = () => {
 
         {/* Job Listings */}
         <div className="space-y-4">
-          {filteredJobs.map((job) => (
-            <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg mb-1">{job.title}</h3>
-                    <p className="text-gray-600 mb-2">{job.employer}</p>
-                    <p className="text-sm text-gray-700 mb-3">{job.description}</p>
-                  </div>
-                  <Badge variant="secondary" className="ml-4">{job.pay}</Badge>
-                </div>
-                
-                <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
-                  <div className="flex items-center">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {job.location} • {job.distance}
-                  </div>
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    {job.duration}
-                  </div>
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 mr-1 text-yellow-500" />
-                    {job.rating}
-                  </div>
-                  <Badge variant="outline">{job.category}</Badge>
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Posted {job.posted}</span>
-                  <div className="space-x-2">
-                    <Button variant="outline" size="sm">
-                      View Details
-                    </Button>
-                    <Button size="sm">
-                      Apply Now
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {sortedJobs.map((job) => (
+            <JobCard key={job.id} job={job} />
           ))}
         </div>
 
-        {filteredJobs.length === 0 && (
+        {sortedJobs.length === 0 && (
           <Card className="text-center py-8">
             <CardContent>
               <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
