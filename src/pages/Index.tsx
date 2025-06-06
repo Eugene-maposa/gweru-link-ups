@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrowserRouter as Router, useNavigate } from "react-router-dom";
-import { MapPin, Users, Briefcase, Star } from "lucide-react";
+import { MapPin, Users, Briefcase, Star, Heart, Award, CheckCircle } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -82,6 +82,80 @@ const Index = () => {
               </CardDescription>
             </CardHeader>
           </Card>
+        </div>
+      </section>
+
+      {/* About Us Section */}
+      <section className="bg-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">About BulawayoJobs</h3>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Empowering Bulawayo's workforce through innovative job matching technology
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h4 className="text-2xl font-bold text-gray-900 mb-6">Our Mission</h4>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                At BulawayoJobs, we believe that everyone deserves access to meaningful work opportunities. 
+                Founded in 2024, our platform was created specifically to bridge the gap between skilled 
+                general hand workers and employers in Bulawayo City.
+              </p>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                We understand the unique challenges faced by both job seekers and employers in our community. 
+                That's why we've built a platform that prioritizes local connections, fair compensation, 
+                and transparent communication.
+              </p>
+              <div className="flex items-center space-x-4">
+                <Heart className="h-6 w-6 text-red-500" />
+                <span className="text-gray-700 font-medium">Made with love for the Bulawayo community</span>
+              </div>
+            </div>
+            
+            <div className="grid sm:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader className="text-center">
+                  <Award className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+                  <CardTitle className="text-lg">Local Focus</CardTitle>
+                  <CardDescription>
+                    Built specifically for Bulawayo's unique job market and community needs
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card>
+                <CardHeader className="text-center">
+                  <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                  <CardTitle className="text-lg">Trust & Safety</CardTitle>
+                  <CardDescription>
+                    Comprehensive verification and rating systems ensure safe, reliable connections
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card>
+                <CardHeader className="text-center">
+                  <Users className="h-12 w-12 text-purple-600 mx-auto mb-4" />
+                  <CardTitle className="text-lg">Community Driven</CardTitle>
+                  <CardDescription>
+                    Supporting local workers and businesses to grow together
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+              
+              <Card>
+                <CardHeader className="text-center">
+                  <MapPin className="h-12 w-12 text-orange-600 mx-auto mb-4" />
+                  <CardTitle className="text-lg">Easy Access</CardTitle>
+                  <CardDescription>
+                    Simple, user-friendly platform accessible to everyone
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+          </div>
         </div>
       </section>
 
