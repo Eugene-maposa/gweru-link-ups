@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, Clock, Star, DollarSign, Calendar, User, Building } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Star, DollarSign, Calendar, User, Building, Phone, MessageSquare, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const JobDetails = () => {
@@ -20,7 +20,7 @@ const JobDetails = () => {
     employer: "ABC Construction",
     location: "City Center",
     distance: "0.5 km",
-    pay: "ZWL 15,000/day",
+    pay: "$15/day",
     duration: "3 days",
     rating: 4.8,
     posted: "2 hours ago",
@@ -43,7 +43,7 @@ Requirements:
 • Previous construction experience preferred but not required
 
 What We Offer:
-• Competitive daily rate of ZWL 15,000
+• Competitive daily rate of $15
 • Safe working environment
 • Opportunity to learn new skills
 • Potential for future work opportunities`,
@@ -60,8 +60,9 @@ What We Offer:
       "Future opportunities"
     ],
     contactInfo: {
-      phone: "+263 77 123 4567",
-      email: "jobs@abcconstruction.co.zw"
+      phone: "+263 775 126 513",
+      whatsapp: "+263 775 126 513",
+      email: "checkchirasha@gmail.com"
     }
   };
 
@@ -79,8 +80,18 @@ What We Offer:
   };
 
   const handleContactEmployer = () => {
-    // Open phone dialer or email client
+    // Open phone dialer
     window.open(`tel:${job.contactInfo.phone}`);
+  };
+
+  const handleContactWhatsapp = () => {
+    // Open WhatsApp with the number
+    window.open(`https://wa.me/${job.contactInfo.whatsapp.replace(/\s+/g, '')}`);
+  };
+
+  const handleContactEmail = () => {
+    // Open email client
+    window.open(`mailto:${job.contactInfo.email}`);
   };
 
   return (
@@ -143,7 +154,7 @@ What We Offer:
                   size="lg" 
                   onClick={handleApply}
                   disabled={isApplying}
-                  className="w-full md:w-auto"
+                  className="w-full md:w-auto mb-2 md:mb-0"
                 >
                   {isApplying ? "Applying..." : "Apply Now"}
                 </Button>
@@ -218,14 +229,26 @@ What We Offer:
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-gray-500" />
+                <Phone className="h-4 w-4 mr-2 text-gray-500" />
                 <span className="font-medium mr-2">Phone:</span>
                 <a href={`tel:${job.contactInfo.phone}`} className="text-blue-600 hover:underline">
                   {job.contactInfo.phone}
                 </a>
               </div>
               <div className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-gray-500" />
+                <MessageSquare className="h-4 w-4 mr-2 text-gray-500" />
+                <span className="font-medium mr-2">WhatsApp:</span>
+                <a 
+                  href={`https://wa.me/${job.contactInfo.whatsapp.replace(/\s+/g, '')}`} 
+                  className="text-blue-600 hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {job.contactInfo.whatsapp}
+                </a>
+              </div>
+              <div className="flex items-center">
+                <Mail className="h-4 w-4 mr-2 text-gray-500" />
                 <span className="font-medium mr-2">Email:</span>
                 <a href={`mailto:${job.contactInfo.email}`} className="text-blue-600 hover:underline">
                   {job.contactInfo.email}

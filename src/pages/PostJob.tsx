@@ -113,7 +113,7 @@ const PostJob = () => {
                   <Label htmlFor="pay">Pay Rate</Label>
                   <Input 
                     id="pay" 
-                    placeholder="e.g., ZWL 10,000/day"
+                    placeholder="e.g., $10/day"
                     required 
                   />
                 </div>
@@ -183,6 +183,7 @@ const PostJob = () => {
                 <Input 
                   id="contact" 
                   placeholder="Phone number or preferred contact method"
+                  defaultValue="+263 775 126 513"
                   required 
                 />
               </div>

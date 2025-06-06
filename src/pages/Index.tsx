@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrowserRouter as Router, useNavigate } from "react-router-dom";
-import { MapPin, Users, Briefcase, Star, Heart, Award, CheckCircle } from "lucide-react";
+import { MapPin, Users, Briefcase, Star, Heart, Award, CheckCircle, Phone, Mail, MessageSquare } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -161,8 +161,34 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p>&copy; 2024 BulawayoJobs. Connecting workers and employers in Bulawayo City.</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-6">
+            <p className="mb-6">&copy; 2024 BulawayoJobs. Connecting workers and employers in Bulawayo City.</p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+              <div className="flex items-center">
+                <Phone className="h-5 w-5 mr-2 text-blue-400" />
+                <a href="tel:+263775126513" className="text-blue-300 hover:text-blue-200">+263 775 126 513</a>
+              </div>
+              <div className="flex items-center">
+                <MessageSquare className="h-5 w-5 mr-2 text-green-400" />
+                <a 
+                  href="https://wa.me/263775126513" 
+                  className="text-green-300 hover:text-green-200"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp
+                </a>
+              </div>
+              <div className="flex items-center">
+                <Mail className="h-5 w-5 mr-2 text-red-400" />
+                <a href="mailto:checkchirasha@gmail.com" className="text-red-300 hover:text-red-200">
+                  checkchirasha@gmail.com
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
