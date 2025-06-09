@@ -4,27 +4,47 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Users, Briefcase, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, Users, Briefcase, AlertCircle, TrendingUp, Calendar, Star } from "lucide-react";
 
 const AdminDashboard = () => {
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [allJobs, setAllJobs] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     pendingApprovals: 0,
     totalJobs: 0,
-    totalWorkers: 0
+    totalWorkers: 0,
+    totalEmployers: 0,
+    activeJobs: 0,
+    completedJobs: 0
   });
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchPendingUsers();
-    fetchStats();
+    fetchAllData();
   }, []);
+
+  const fetchAllData = async () => {
+    try {
+      await Promise.all([
+        fetchPendingUsers(),
+        fetchAllJobs(),
+        fetchAllUsers(),
+        fetchStats()
+      ]);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchPendingUsers = async () => {
     try {
@@ -45,24 +65,62 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchAllJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          profiles:employer_id (
+            full_name,
+            email
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAllJobs(data || []);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAllUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   const fetchStats = async () => {
     try {
-      const [usersResult, jobsResult, workersResult] = await Promise.all([
+      const [usersResult, jobsResult, workersResult, employersResult, activeJobsResult, completedJobsResult] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('jobs').select('id', { count: 'exact' }),
-        supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'worker')
+        supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'worker'),
+        supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'employer'),
+        supabase.from('jobs').select('id', { count: 'exact' }).eq('status', 'open'),
+        supabase.from('jobs').select('id', { count: 'exact' }).eq('status', 'completed')
       ]);
 
       setStats({
         totalUsers: usersResult.count || 0,
         pendingApprovals: pendingUsers.length,
         totalJobs: jobsResult.count || 0,
-        totalWorkers: workersResult.count || 0
+        totalWorkers: workersResult.count || 0,
+        totalEmployers: employersResult.count || 0,
+        activeJobs: activeJobsResult.count || 0,
+        completedJobs: completedJobsResult.count || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -80,12 +138,36 @@ const AdminDashboard = () => {
         description: `The user has been successfully ${status}.`,
       });
 
-      fetchPendingUsers();
-      fetchStats();
+      fetchAllData();
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to update user status",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const toggleJobStatus = async (jobId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'open' ? 'closed' : 'open';
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ status: newStatus })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Job Updated",
+        description: `Job status changed to ${newStatus}.`,
+      });
+
+      fetchAllJobs();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update job status",
         variant: "destructive"
       });
     }
@@ -112,13 +194,16 @@ const AdminDashboard = () => {
               <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Main Dashboard
               </Button>
+              <Button variant="outline" onClick={() => navigate('/auth')}>
+                Logout
+              </Button>
             </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
+        {/* Enhanced Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
@@ -159,10 +244,10 @@ const AdminDashboard = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <Users className="h-8 w-8 text-purple-500 mr-3" />
+                <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
                 <div>
-                  <div className="text-2xl font-bold">{stats.totalWorkers}</div>
-                  <div className="text-sm text-gray-600">Total Workers</div>
+                  <div className="text-2xl font-bold">{stats.activeJobs}</div>
+                  <div className="text-sm text-gray-600">Active Jobs</div>
                 </div>
               </div>
             </CardContent>
@@ -173,6 +258,8 @@ const AdminDashboard = () => {
           <TabsList>
             <TabsTrigger value="pending">Pending Approvals</TabsTrigger>
             <TabsTrigger value="users">All Users</TabsTrigger>
+            <TabsTrigger value="jobs">All Jobs</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
           
           <TabsContent value="pending" className="space-y-4">
@@ -249,10 +336,147 @@ const AdminDashboard = () => {
           </TabsContent>
           
           <TabsContent value="users">
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium">All Users View</h3>
-              <p className="text-gray-500">User management features coming soon</p>
+            <Card>
+              <CardHeader>
+                <CardTitle>All Users</CardTitle>
+                <CardDescription>Manage all registered users</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Joined</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.full_name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{user.role}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={user.approval_status === 'approved' ? 'default' : 
+                                   user.approval_status === 'rejected' ? 'destructive' : 'secondary'}
+                          >
+                            {user.approval_status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="jobs">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Jobs</CardTitle>
+                <CardDescription>Monitor and manage job postings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Employer</TableHead>
+                      <TableHead>Pay Rate</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Posted</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allJobs.map((job) => (
+                      <TableRow key={job.id}>
+                        <TableCell className="font-medium">{job.title}</TableCell>
+                        <TableCell>{job.profiles?.full_name || 'Unknown'}</TableCell>
+                        <TableCell>${job.pay_rate} {job.pay_type}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={job.status === 'open' ? 'default' : 'secondary'}
+                          >
+                            {job.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(job.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleJobStatus(job.id, job.status)}
+                          >
+                            {job.status === 'open' ? 'Close' : 'Reopen'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Calendar className="h-5 w-5 mr-2" />
+                    User Statistics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Total Workers:</span>
+                      <span className="font-semibold">{stats.totalWorkers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Employers:</span>
+                      <span className="font-semibold">{stats.totalEmployers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pending Approvals:</span>
+                      <span className="font-semibold text-yellow-600">{pendingUsers.length}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Star className="h-5 w-5 mr-2" />
+                    Job Statistics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Active Jobs:</span>
+                      <span className="font-semibold text-green-600">{stats.activeJobs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Completed Jobs:</span>
+                      <span className="font-semibold">{stats.completedJobs}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Jobs Posted:</span>
+                      <span className="font-semibold">{stats.totalJobs}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>

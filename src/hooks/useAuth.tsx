@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, userData: any) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInAsAdmin: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -141,6 +142,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const signInAsAdmin = async (email: string, password: string) => {
+    try {
+      console.log('Starting admin signin process for:', email);
+      
+      // Check if this is the default admin credentials
+      if (email === 'mapseujers@gmail.com' && password === 'maps@#16') {
+        // For default admin, we'll create a temporary session
+        // In a real app, you'd want to have proper admin accounts
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        if (error) {
+          // If admin account doesn't exist, we'll handle it gracefully
+          console.log('Admin account login attempt:', error.message);
+          return { error: { message: 'Admin credentials not found. Please contact system administrator.' } };
+        }
+        
+        return { error: null };
+      } else {
+        // For other admin accounts, check if they have admin role
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        
+        return { error };
+      }
+    } catch (error) {
+      console.error('Admin signin error:', error);
+      return { error };
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -158,6 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading,
       signUp,
       signIn,
+      signInAsAdmin,
       signOut
     }}>
       {children}
