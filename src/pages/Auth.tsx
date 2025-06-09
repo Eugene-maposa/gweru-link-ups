@@ -10,10 +10,11 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [signUpData, setSignUpData] = useState({
     fullName: '',
     email: '',
@@ -35,13 +36,31 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setSuccessMessage('');
+    
+    if (!signInData.email || !signInData.password) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
     
     const { error } = await signIn(signInData.email, signInData.password);
     
     if (error) {
+      let errorMessage = error.message;
+      if (error.message.includes('Email not confirmed')) {
+        errorMessage = "Please check your email and click the confirmation link before signing in.";
+      } else if (error.message.includes('Invalid login credentials')) {
+        errorMessage = "Invalid email or password. Please check your credentials.";
+      }
+      
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     } else {
@@ -57,21 +76,58 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setSuccessMessage('');
+    
+    // Validate all fields are filled
+    if (!signUpData.fullName || !signUpData.email || !signUpData.phone || 
+        !signUpData.nationalId || !signUpData.role || !signUpData.location || 
+        !signUpData.password) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+    
+    // Validate password strength
+    if (signUpData.password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
     
     const { error } = await signUp(signUpData.email, signUpData.password, signUpData);
     
     if (error) {
+      let errorMessage = error.message;
+      if (error.message.includes('already registered')) {
+        errorMessage = "An account with this email already exists. Please sign in instead.";
+      } else if (error.message.includes('national_id')) {
+        errorMessage = "This National ID is already registered. Please check your ID number.";
+      }
+      
       toast({
         title: "Sign up failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     } else {
-      toast({
-        title: "Account created!",
-        description: "Please wait for admin approval before accessing the platform.",
+      setSuccessMessage("Account created successfully! Please check your email for a confirmation link, then wait for admin approval.");
+      setSignUpData({
+        fullName: '',
+        email: '',
+        phone: '',
+        nationalId: '',
+        role: '',
+        location: '',
+        password: ''
       });
-      navigate('/dashboard');
     }
     setIsLoading(false);
   };
@@ -84,6 +140,15 @@ const Auth = () => {
           <CardDescription>Join our community of workers and employers</CardDescription>
         </CardHeader>
         <CardContent>
+          {successMessage && (
+            <Alert className="mb-4">
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                {successMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -123,13 +188,13 @@ const Auth = () => {
               <Alert className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  All new accounts require admin approval before access is granted.
+                  All new accounts require admin approval before access is granted. Please provide your National ID for verification.
                 </AlertDescription>
               </Alert>
               
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
+                  <Label htmlFor="fullName">Full Name *</Label>
                   <Input 
                     id="fullName" 
                     placeholder="John Doe" 
@@ -139,7 +204,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input 
                     id="email" 
                     type="email" 
@@ -150,7 +215,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone">Phone Number *</Label>
                   <Input 
                     id="phone" 
                     type="tel" 
@@ -161,7 +226,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nationalId">National ID</Label>
+                  <Label htmlFor="nationalId">National ID *</Label>
                   <Input 
                     id="nationalId" 
                     placeholder="63-123456-A-12" 
@@ -171,7 +236,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="userType">I am a...</Label>
+                  <Label htmlFor="userType">I am a... *</Label>
                   <Select value={signUpData.role} onValueChange={(value) => setSignUpData({...signUpData, role: value})} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select your role" />
@@ -183,7 +248,7 @@ const Auth = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="location">Area in Bulawayo</Label>
+                  <Label htmlFor="location">Area in Bulawayo *</Label>
                   <Select value={signUpData.location} onValueChange={(value) => setSignUpData({...signUpData, location: value})} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select your area" />
@@ -201,13 +266,14 @@ const Auth = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Password * (min 6 characters)</Label>
                   <Input 
                     id="password" 
                     type="password" 
                     value={signUpData.password}
                     onChange={(e) => setSignUpData({...signUpData, password: e.target.value})}
                     required 
+                    minLength={6}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
