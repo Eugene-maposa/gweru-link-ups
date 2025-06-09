@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Plus, Search, Star, Clock } from "lucide-react";
+import { MapPin, Plus, Search, Star, Clock, DollarSign, Users, Briefcase } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,17 +15,43 @@ const Dashboard = () => {
   const { userProfile, signOut } = useAuth();
   const [nearbyJobs, setNearbyJobs] = useState<any[]>([]);
   const [myApplications, setMyApplications] = useState<any[]>([]);
+  const [myJobs, setMyJobs] = useState<any[]>([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalJobs: 0,
+    totalApplications: 0,
+    totalEarned: 0,
+    completedJobs: 0,
+    averageRating: 0
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (userProfile?.approval_status === 'approved') {
-      fetchJobs();
-      if (userProfile.role === 'worker') {
-        fetchApplications();
-      }
+      fetchDashboardData();
     }
     setLoading(false);
   }, [userProfile]);
+
+  const fetchDashboardData = async () => {
+    try {
+      if (userProfile?.role === 'worker') {
+        await Promise.all([
+          fetchJobs(),
+          fetchApplications(),
+          fetchWorkerStats()
+        ]);
+      } else if (userProfile?.role === 'employer') {
+        await Promise.all([
+          fetchMyJobs(),
+          fetchEmployerStats()
+        ]);
+      } else {
+        await fetchJobs();
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
@@ -48,6 +74,30 @@ const Dashboard = () => {
     }
   };
 
+  const fetchMyJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          job_applications(
+            id,
+            status,
+            profiles:worker_id (
+              full_name
+            )
+          )
+        `)
+        .eq('employer_id', userProfile?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyJobs(data || []);
+    } catch (error) {
+      console.error('Error fetching my jobs:', error);
+    }
+  };
+
   const fetchApplications = async () => {
     try {
       const { data, error } = await supabase
@@ -56,6 +106,8 @@ const Dashboard = () => {
           *,
           jobs (
             title,
+            pay_rate,
+            pay_type,
             profiles:employer_id (
               full_name
             )
@@ -68,6 +120,67 @@ const Dashboard = () => {
       setMyApplications(data || []);
     } catch (error) {
       console.error('Error fetching applications:', error);
+    }
+  };
+
+  const fetchWorkerStats = async () => {
+    try {
+      // Get worker profile data
+      const { data: workerData, error: workerError } = await supabase
+        .from('worker_profiles')
+        .select('*')
+        .eq('user_id', userProfile?.id)
+        .single();
+
+      if (workerError && workerError.code !== 'PGRST116') {
+        console.error('Error fetching worker stats:', workerError);
+        return;
+      }
+
+      // Get application count
+      const { count: applicationCount } = await supabase
+        .from('job_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('worker_id', userProfile?.id);
+
+      setDashboardStats({
+        totalJobs: workerData?.total_jobs_completed || 0,
+        totalApplications: applicationCount || 0,
+        totalEarned: (workerData?.total_jobs_completed || 0) * 50, // Estimated
+        completedJobs: workerData?.total_jobs_completed || 0,
+        averageRating: workerData?.rating || 5.0
+      });
+    } catch (error) {
+      console.error('Error fetching worker stats:', error);
+    }
+  };
+
+  const fetchEmployerStats = async () => {
+    try {
+      // Get job count
+      const { count: jobCount } = await supabase
+        .from('jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('employer_id', userProfile?.id);
+
+      // Get application count for employer's jobs
+      const { count: applicationCount } = await supabase
+        .from('job_applications')
+        .select(`
+          *,
+          jobs!inner(employer_id)
+        `, { count: 'exact', head: true })
+        .eq('jobs.employer_id', userProfile?.id);
+
+      setDashboardStats({
+        totalJobs: jobCount || 0,
+        totalApplications: applicationCount || 0,
+        totalEarned: 0,
+        completedJobs: 0,
+        averageRating: 0
+      });
+    } catch (error) {
+      console.error('Error fetching employer stats:', error);
     }
   };
 
@@ -143,6 +256,98 @@ const Dashboard = () => {
     }
   };
 
+  const getStatsCards = () => {
+    if (userProfile?.role === 'worker') {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Jobs Completed</p>
+                  <p className="text-2xl font-bold">{dashboardStats.completedJobs}</p>
+                </div>
+                <Briefcase className="h-8 w-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Applications</p>
+                  <p className="text-2xl font-bold">{dashboardStats.totalApplications}</p>
+                </div>
+                <Users className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Earned</p>
+                  <p className="text-2xl font-bold">${dashboardStats.totalEarned}</p>
+                </div>
+                <DollarSign className="h-8 w-8 text-yellow-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Rating</p>
+                  <p className="text-2xl font-bold">{dashboardStats.averageRating}</p>
+                </div>
+                <Star className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    } else if (userProfile?.role === 'employer') {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Jobs Posted</p>
+                  <p className="text-2xl font-bold">{dashboardStats.totalJobs}</p>
+                </div>
+                <Briefcase className="h-8 w-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Applications Received</p>
+                  <p className="text-2xl font-bold">{dashboardStats.totalApplications}</p>
+                </div>
+                <Users className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Response Rate</p>
+                  <p className="text-2xl font-bold">95%</p>
+                </div>
+                <Star className="h-8 w-8 text-orange-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -150,7 +355,7 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">
-              Dashboard - {userProfile?.role?.charAt(0).toUpperCase() + userProfile?.role?.slice(1)}
+              My Dashboard
             </h1>
             <div className="flex items-center space-x-4">
               <Button onClick={() => navigate('/profile')}>Profile</Button>
@@ -161,6 +366,9 @@ const Dashboard = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        {getStatsCards()}
+
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1">
@@ -175,49 +383,24 @@ const Dashboard = () => {
 
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle className="text-lg">Your Stats</CardTitle>
+                <CardTitle className="text-lg">Profile Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {userProfile?.role === 'worker' && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Jobs Completed</span>
-                        <span className="font-semibold">23</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Rating</span>
-                        <div className="flex items-center">
-                          <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                          <span className="font-semibold">4.8</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total Earned</span>
-                        <span className="font-semibold text-green-600">$1,250</span>
-                      </div>
-                    </>
-                  )}
-                  {userProfile?.role === 'employer' && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Jobs Posted</span>
-                        <span className="font-semibold">8</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Workers Hired</span>
-                        <span className="font-semibold">15</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Total Spent</span>
-                        <span className="font-semibold text-blue-600">$2,450</span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Response Rate</span>
-                    <span className="font-semibold">95%</span>
+                <div className="space-y-3 text-center">
+                  <div className="w-16 h-16 mx-auto bg-blue-500 rounded-full flex items-center justify-center text-white text-lg font-bold">
+                    {userProfile?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
                   </div>
+                  <div>
+                    <p className="font-semibold">{userProfile?.full_name}</p>
+                    <p className="text-sm text-gray-600 capitalize">{userProfile?.role}</p>
+                    <p className="text-xs text-gray-500">{userProfile?.location}</p>
+                  </div>
+                  <Badge 
+                    variant={userProfile?.approval_status === 'approved' ? 'default' : 'secondary'}
+                    className={userProfile?.approval_status === 'approved' ? 'bg-green-500' : ''}
+                  >
+                    {userProfile?.approval_status?.charAt(0).toUpperCase() + userProfile?.approval_status?.slice(1)}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -239,28 +422,46 @@ const Dashboard = () => {
               <TabsContent value={userProfile?.role === 'worker' ? 'nearby' : 'jobs'} className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">
-                    {userProfile?.role === 'worker' ? 'Jobs Available' : 'Recent Jobs'}
+                    {userProfile?.role === 'worker' ? 'Jobs Available' : userProfile?.role === 'employer' ? 'My Posted Jobs' : 'Recent Jobs'}
                   </h3>
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => navigate('/find-work')}>
-                      <Search className="h-4 w-4 mr-2" />
-                      View All Jobs
-                    </Button>
+                    {userProfile?.role === 'worker' && (
+                      <Button variant="outline" size="sm" onClick={() => navigate('/find-work')}>
+                        <Search className="h-4 w-4 mr-2" />
+                        View All Jobs
+                      </Button>
+                    )}
+                    {userProfile?.role === 'employer' && (
+                      <Button variant="outline" size="sm" onClick={() => navigate('/post-job')}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Post New Job
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
                 <div className="space-y-4">
-                  {nearbyJobs.map((job) => (
+                  {(userProfile?.role === 'employer' ? myJobs : nearbyJobs).map((job) => (
                     <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleJobClick(job.id)}>
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h4 className="font-semibold text-lg">{job.title}</h4>
-                            <p className="text-gray-600">{job.profiles?.full_name}</p>
+                            <p className="text-gray-600">
+                              {userProfile?.role === 'employer' ? 
+                                `${job.job_applications?.length || 0} applications` : 
+                                job.profiles?.full_name
+                              }
+                            </p>
                           </div>
-                          <Badge variant="secondary" className="text-green-600 bg-green-50">
-                            ${job.pay_rate}/{job.pay_type}
-                          </Badge>
+                          <div className="flex flex-col items-end space-y-2">
+                            <Badge variant="secondary" className="text-green-600 bg-green-50">
+                              ${job.pay_rate}/{job.pay_type}
+                            </Badge>
+                            <Badge variant={job.status === 'open' ? 'default' : 'secondary'}>
+                              {job.status}
+                            </Badge>
+                          </div>
                         </div>
                         
                         <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
@@ -294,6 +495,19 @@ const Dashboard = () => {
                       </CardContent>
                     </Card>
                   ))}
+
+                  {(userProfile?.role === 'employer' ? myJobs : nearbyJobs).length === 0 && (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <p className="text-gray-500">
+                          {userProfile?.role === 'employer' ? 
+                            'No jobs posted yet. Create your first job posting!' : 
+                            'No jobs available at the moment. Check back later!'
+                          }
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
 
@@ -315,6 +529,11 @@ const Dashboard = () => {
                             <p className="text-sm text-gray-500">
                               Applied on {new Date(application.applied_at).toLocaleDateString()}
                             </p>
+                            {application.jobs?.pay_rate && (
+                              <p className="text-sm font-medium text-green-600">
+                                ${application.jobs.pay_rate}/{application.jobs.pay_type}
+                              </p>
+                            )}
                           </div>
                           <div className="flex flex-col items-end space-y-2">
                             <Badge 
@@ -331,6 +550,14 @@ const Dashboard = () => {
                       </CardContent>
                     </Card>
                   ))}
+
+                  {myApplications.length === 0 && (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <p className="text-gray-500">No applications yet. Start applying to jobs!</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
 
@@ -344,6 +571,20 @@ const Dashboard = () => {
                         <p className="text-sm text-gray-600">Your account has been approved by the admin</p>
                         <p className="text-xs text-gray-500">Welcome to BulawayoJobs!</p>
                       </div>
+                      {userProfile?.role === 'worker' && dashboardStats.totalApplications > 0 && (
+                        <div className="border-l-4 border-green-500 pl-4">
+                          <p className="font-medium">Applications submitted</p>
+                          <p className="text-sm text-gray-600">You have {dashboardStats.totalApplications} active job applications</p>
+                          <p className="text-xs text-gray-500">Keep checking for updates!</p>
+                        </div>
+                      )}
+                      {userProfile?.role === 'employer' && dashboardStats.totalJobs > 0 && (
+                        <div className="border-l-4 border-purple-500 pl-4">
+                          <p className="font-medium">Jobs posted</p>
+                          <p className="text-sm text-gray-600">You have posted {dashboardStats.totalJobs} jobs</p>
+                          <p className="text-xs text-gray-500">Great work connecting with workers!</p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
