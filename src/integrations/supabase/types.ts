@@ -9,16 +9,207 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      job_applications: {
+        Row: {
+          applied_at: string | null
+          id: string
+          job_id: string | null
+          status: string
+          worker_id: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          id?: string
+          job_id?: string | null
+          status?: string
+          worker_id?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          id?: string
+          job_id?: string | null
+          status?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          created_at: string | null
+          description: string
+          duration: string | null
+          employer_id: string | null
+          id: string
+          location: string
+          pay_rate: number
+          pay_type: string
+          skills_required: string[] | null
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          duration?: string | null
+          employer_id?: string | null
+          id?: string
+          location: string
+          pay_rate: number
+          pay_type: string
+          skills_required?: string[] | null
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          duration?: string | null
+          employer_id?: string | null
+          id?: string
+          location?: string
+          pay_rate?: number
+          pay_type?: string
+          skills_required?: string[] | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_employer_id_fkey"
+            columns: ["employer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          approval_status: Database["public"]["Enums"]["approval_status"]
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          location: string
+          national_id: string
+          phone: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+        }
+        Insert: {
+          approval_status?: Database["public"]["Enums"]["approval_status"]
+          created_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          location: string
+          national_id: string
+          phone: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Update: {
+          approval_status?: Database["public"]["Enums"]["approval_status"]
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          location?: string
+          national_id?: string
+          phone?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      worker_profiles: {
+        Row: {
+          availability: string | null
+          bio: string | null
+          created_at: string | null
+          daily_rate: number | null
+          experience_years: number | null
+          hourly_rate: number | null
+          id: string
+          rating: number | null
+          skills: string[] | null
+          total_jobs_completed: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          availability?: string | null
+          bio?: string | null
+          created_at?: string | null
+          daily_rate?: number | null
+          experience_years?: number | null
+          hourly_rate?: number | null
+          id?: string
+          rating?: number | null
+          skills?: string[] | null
+          total_jobs_completed?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          availability?: string | null
+          bio?: string | null
+          created_at?: string | null
+          daily_rate?: number | null
+          experience_years?: number | null
+          hourly_rate?: number | null
+          id?: string
+          rating?: number | null
+          skills?: string[] | null
+          total_jobs_completed?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      is_user_approved: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      approval_status: "pending" | "approved" | "rejected"
+      user_role: "worker" | "employer" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +324,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      approval_status: ["pending", "approved", "rejected"],
+      user_role: ["worker", "employer", "admin"],
+    },
   },
 } as const
