@@ -30,8 +30,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
-          // Fetch user profile with a small delay to ensure the trigger has run
+        if (session?.user && event === 'SIGNED_IN') {
+          // Fetch user profile with a small delay to ensure any triggers have run
           setTimeout(async () => {
             try {
               const { data: profile, error } = await supabase
@@ -74,12 +74,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log('Starting signup process for:', email);
       
-      // First, sign up the user
+      // First, sign up the user with metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth`
+          emailRedirectTo: `${window.location.origin}/auth`,
+          data: {
+            full_name: userData.fullName,
+            phone: userData.phone,
+            national_id: userData.nationalId,
+            role: userData.role,
+            location: userData.location
+          }
         }
       });
 
@@ -88,31 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error: authError };
       }
 
-      if (authData.user) {
-        console.log('User created:', authData.user.id);
-        
-        // Create profile manually since the user might not be confirmed yet
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([{
-            id: authData.user.id,
-            email,
-            full_name: userData.fullName,
-            phone: userData.phone,
-            national_id: userData.nationalId,
-            role: userData.role,
-            location: userData.location,
-            approval_status: 'pending'
-          }]);
-        
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          return { error: profileError };
-        }
-        
-        console.log('Profile created successfully');
-      }
-
+      console.log('User created successfully:', authData.user?.id);
       return { error: null };
     } catch (error) {
       console.error('Signup error:', error);
