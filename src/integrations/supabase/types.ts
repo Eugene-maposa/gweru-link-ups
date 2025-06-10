@@ -9,6 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      approval_tokens: {
+        Row: {
+          approve_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          reject_token: string
+          user_id: string
+        }
+        Insert: {
+          approve_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          reject_token: string
+          user_id: string
+        }
+        Update: {
+          approve_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          reject_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_applications: {
         Row: {
           applied_at: string | null
