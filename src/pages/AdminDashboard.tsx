@@ -1,19 +1,25 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Users, Briefcase, AlertCircle, TrendingUp, Calendar, Star } from "lucide-react";
+import { CheckCircle, XCircle, Users, Briefcase, AlertCircle, TrendingUp, Calendar, Star, Search, Filter } from "lucide-react";
 
 const AdminDashboard = () => {
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [allJobs, setAllJobs] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
   const [stats, setStats] = useState({
     totalUsers: 0,
     pendingApprovals: 0,
@@ -30,6 +36,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  useEffect(() => {
+    filterAndSortUsers();
+  }, [allUsers, searchTerm, statusFilter, roleFilter, sortBy]);
 
   const fetchAllData = async () => {
     try {
@@ -97,6 +107,51 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching users:', error);
     }
+  };
+
+  const filterAndSortUsers = () => {
+    let filtered = [...allUsers];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user => 
+        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.national_id?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(user => user.approval_status === statusFilter);
+    }
+
+    // Apply role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'newest':
+        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'oldest':
+        filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case 'name':
+        filtered.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+        break;
+      case 'pending-first':
+        filtered.sort((a, b) => {
+          if (a.approval_status === 'pending' && b.approval_status !== 'pending') return -1;
+          if (a.approval_status !== 'pending' && b.approval_status === 'pending') return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        break;
+    }
+
+    setFilteredUsers(filtered);
   };
 
   const fetchStats = async () => {
@@ -256,8 +311,8 @@ const AdminDashboard = () => {
 
         <Tabs defaultValue="pending" className="w-full">
           <TabsList>
-            <TabsTrigger value="pending">Pending Approvals</TabsTrigger>
-            <TabsTrigger value="users">All Users</TabsTrigger>
+            <TabsTrigger value="pending">Pending Approvals ({pendingUsers.length})</TabsTrigger>
+            <TabsTrigger value="users">All Users ({allUsers.length})</TabsTrigger>
             <TabsTrigger value="jobs">All Jobs</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
@@ -339,7 +394,59 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>All Users</CardTitle>
-                <CardDescription>Manage all registered users</CardDescription>
+                <CardDescription>Manage all registered users with advanced filtering and sorting</CardDescription>
+                
+                {/* Filters and Search */}
+                <div className="flex flex-wrap gap-4 items-center">
+                  <div className="flex items-center space-x-2">
+                    <Search className="h-4 w-4" />
+                    <Input
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-64"
+                    />
+                  </div>
+                  
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="worker">Worker</SelectItem>
+                      <SelectItem value="employer">Employer</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest First</SelectItem>
+                      <SelectItem value="oldest">Oldest First</SelectItem>
+                      <SelectItem value="name">Name A-Z</SelectItem>
+                      <SelectItem value="pending-first">Pending First</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <div className="text-sm text-gray-500">
+                    Showing {filteredUsers.length} of {allUsers.length} users
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -349,13 +456,15 @@ const AdminDashboard = () => {
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Location</TableHead>
                       <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allUsers.map((user) => (
+                    {filteredUsers.map((user) => (
                       <TableRow key={user.id}>
-                        <TableCell>{user.full_name}</TableCell>
+                        <TableCell className="font-medium">{user.full_name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{user.role}</Badge>
@@ -368,7 +477,30 @@ const AdminDashboard = () => {
                             {user.approval_status}
                           </Badge>
                         </TableCell>
+                        <TableCell>{user.location}</TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {user.approval_status === 'pending' && (
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleApproval(user.id, 'approved')}
+                                className="text-green-600 hover:bg-green-50"
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleApproval(user.id, 'rejected')}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

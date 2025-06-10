@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -93,6 +92,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (authError) {
         console.error('Auth signup error:', authError);
         return { error: authError };
+      }
+
+      if (authData.user) {
+        // Send email notification to admin
+        try {
+          const { error: emailError } = await supabase.functions.invoke('notify-admin-registration', {
+            body: {
+              userId: authData.user.id,
+              userEmail: email,
+              fullName: userData.fullName,
+              role: userData.role,
+              nationalId: userData.nationalId,
+              phone: userData.phone,
+              location: userData.location
+            }
+          });
+
+          if (emailError) {
+            console.error('Failed to send admin notification email:', emailError);
+            // Don't fail the signup if email fails
+          } else {
+            console.log('Admin notification email sent successfully');
+          }
+        } catch (emailError) {
+          console.error('Error sending admin notification:', emailError);
+          // Don't fail the signup if email fails
+        }
       }
 
       console.log('User created successfully:', authData.user?.id);
@@ -192,3 +218,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthProvider;
