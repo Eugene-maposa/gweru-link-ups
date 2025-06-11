@@ -1,26 +1,21 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, Users, Briefcase, AlertCircle, TrendingUp, Calendar, Star, Search, Filter } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import AdminStatsCards from "@/components/admin/AdminStatsCards";
+import PendingApprovals from "@/components/admin/PendingApprovals";
+import UserManagement from "@/components/admin/UserManagement";
+import JobManagement from "@/components/admin/JobManagement";
+import AnalyticsSection from "@/components/admin/AnalyticsSection";
 
 const AdminDashboard = () => {
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [allJobs, setAllJobs] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
   const [stats, setStats] = useState({
     totalUsers: 0,
     pendingApprovals: 0,
@@ -38,10 +33,6 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchAllData();
   }, []);
-
-  useEffect(() => {
-    filterAndSortUsers();
-  }, [allUsers, searchTerm, statusFilter, roleFilter, sortBy]);
 
   const fetchAllData = async () => {
     try {
@@ -118,7 +109,6 @@ const AdminDashboard = () => {
       setAllJobs(data || []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      // Don't show toast for this one as it's part of the main fetch
     }
   };
 
@@ -139,60 +129,13 @@ const AdminDashboard = () => {
       setAllUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
-      // Don't show toast for this one as it's part of the main fetch
     }
-  };
-
-  const filterAndSortUsers = () => {
-    let filtered = [...allUsers];
-
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter(user => 
-        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.national_id?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => user.approval_status === statusFilter);
-    }
-
-    // Apply role filter
-    if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
-    }
-
-    // Apply sorting
-    switch (sortBy) {
-      case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        break;
-      case 'oldest':
-        filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        break;
-      case 'name':
-        filtered.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
-        break;
-      case 'pending-first':
-        filtered.sort((a, b) => {
-          if (a.approval_status === 'pending' && b.approval_status !== 'pending') return -1;
-          if (a.approval_status !== 'pending' && b.approval_status === 'pending') return 1;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-        break;
-    }
-
-    setFilteredUsers(filtered);
   };
 
   const fetchStats = async () => {
     try {
       console.log('Fetching stats...');
       
-      // Use Promise.allSettled to handle partial failures gracefully
       const results = await Promise.allSettled([
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('jobs').select('id', { count: 'exact' }),
@@ -241,7 +184,6 @@ const AdminDashboard = () => {
 
       console.log(`User ${userId} ${status} successfully`);
       
-      // Refresh data after update
       await fetchAllData();
     } catch (error) {
       console.error('Failed to update user status:', error);
@@ -275,7 +217,6 @@ const AdminDashboard = () => {
 
       console.log(`Job ${jobId} status updated to ${newStatus}`);
       
-      // Refresh jobs data
       await fetchAllJobs();
       await fetchStats();
     } catch (error) {
@@ -334,56 +275,7 @@ const AdminDashboard = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Enhanced Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-500 mr-3" />
-                <div>
-                  <div className="text-2xl font-bold">{stats.totalUsers}</div>
-                  <div className="text-sm text-gray-600">Total Users</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <AlertCircle className="h-8 w-8 text-yellow-500 mr-3" />
-                <div>
-                  <div className="text-2xl font-bold">{pendingUsers.length}</div>
-                  <div className="text-sm text-gray-600">Pending Approvals</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Briefcase className="h-8 w-8 text-green-500 mr-3" />
-                <div>
-                  <div className="text-2xl font-bold">{stats.totalJobs}</div>
-                  <div className="text-sm text-gray-600">Total Jobs</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
-                <div>
-                  <div className="text-2xl font-bold">{stats.activeJobs}</div>
-                  <div className="text-sm text-gray-600">Active Jobs</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <AdminStatsCards stats={stats} />
 
         <Tabs defaultValue="pending" className="w-full">
           <TabsList>
@@ -394,314 +286,31 @@ const AdminDashboard = () => {
           </TabsList>
           
           <TabsContent value="pending" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Pending User Approvals</h3>
-              <Badge variant="outline">{pendingUsers.length} Pending</Badge>
-            </div>
-            
-            <div className="space-y-4">
-              {pendingUsers.map((user) => (
-                <Card key={user.id}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold">{user.full_name}</h4>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-600">Email:</span>
-                            <p>{user.email}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Phone:</span>
-                            <p>{user.phone}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">National ID:</span>
-                            <p>{user.national_id}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Role:</span>
-                            <Badge variant="secondary">{user.role}</Badge>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Location:</span>
-                            <p>{user.location}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Applied:</span>
-                            <p>{new Date(user.created_at).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleApproval(user.id, 'approved')}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleApproval(user.id, 'rejected')}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            
-            {pendingUsers.length === 0 && (
-              <div className="text-center py-12">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500 opacity-50" />
-                <h3 className="text-lg font-medium">No pending approvals</h3>
-                <p className="text-gray-500">All users have been processed</p>
-              </div>
-            )}
+            <PendingApprovals 
+              pendingUsers={pendingUsers} 
+              onApproval={handleApproval} 
+            />
           </TabsContent>
           
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Users</CardTitle>
-                <CardDescription>Manage all registered users with advanced filtering and sorting</CardDescription>
-                
-                {/* Filters and Search */}
-                <div className="flex flex-wrap gap-4 items-center">
-                  <div className="flex items-center space-x-2">
-                    <Search className="h-4 w-4" />
-                    <Input
-                      placeholder="Search users..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-64"
-                    />
-                  </div>
-                  
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="worker">Worker</SelectItem>
-                      <SelectItem value="employer">Employer</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest First</SelectItem>
-                      <SelectItem value="oldest">Oldest First</SelectItem>
-                      <SelectItem value="name">Name A-Z</SelectItem>
-                      <SelectItem value="pending-first">Pending First</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <div className="text-sm text-gray-500">
-                    Showing {filteredUsers.length} of {allUsers.length} users
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.full_name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{user.role}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={user.approval_status === 'approved' ? 'default' : 
-                                   user.approval_status === 'rejected' ? 'destructive' : 'secondary'}
-                          >
-                            {user.approval_status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{user.location}</TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {user.approval_status === 'pending' && (
-                            <div className="flex space-x-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleApproval(user.id, 'approved')}
-                                className="text-green-600 hover:bg-green-50"
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleApproval(user.id, 'rejected')}
-                                className="text-red-600 hover:bg-red-50"
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {filteredUsers.length === 0 && (
-                  <div className="text-center py-12">
-                    <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium">No users found</h3>
-                    <p className="text-gray-500">Try adjusting your search or filter criteria</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <UserManagement 
+              allUsers={allUsers} 
+              onApproval={handleApproval} 
+            />
           </TabsContent>
 
           <TabsContent value="jobs">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Jobs</CardTitle>
-                <CardDescription>Monitor and manage job postings</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Employer</TableHead>
-                      <TableHead>Pay Rate</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Posted</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allJobs.map((job) => (
-                      <TableRow key={job.id}>
-                        <TableCell className="font-medium">{job.title}</TableCell>
-                        <TableCell>{job.profiles?.full_name || 'Unknown'}</TableCell>
-                        <TableCell>${job.pay_rate} {job.pay_type}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={job.status === 'open' ? 'default' : 'secondary'}
-                          >
-                            {job.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(job.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => toggleJobStatus(job.id, job.status)}
-                          >
-                            {job.status === 'open' ? 'Close' : 'Reopen'}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                {allJobs.length === 0 && (
-                  <div className="text-center py-12">
-                    <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                    <h3 className="text-lg font-medium">No jobs found</h3>
-                    <p className="text-gray-500">No jobs have been posted yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <JobManagement 
+              allJobs={allJobs} 
+              onToggleJobStatus={toggleJobStatus} 
+            />
           </TabsContent>
 
           <TabsContent value="analytics">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Calendar className="h-5 w-5 mr-2" />
-                    User Statistics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>Total Workers:</span>
-                      <span className="font-semibold">{stats.totalWorkers}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Employers:</span>
-                      <span className="font-semibold">{stats.totalEmployers}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Pending Approvals:</span>
-                      <span className="font-semibold text-yellow-600">{pendingUsers.length}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Star className="h-5 w-5 mr-2" />
-                    Job Statistics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>Active Jobs:</span>
-                      <span className="font-semibold text-green-600">{stats.activeJobs}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Completed Jobs:</span>
-                      <span className="font-semibold">{stats.completedJobs}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Jobs Posted:</span>
-                      <span className="font-semibold">{stats.totalJobs}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <AnalyticsSection 
+              stats={stats} 
+              pendingUsersCount={pendingUsers.length} 
+            />
           </TabsContent>
         </Tabs>
       </div>
