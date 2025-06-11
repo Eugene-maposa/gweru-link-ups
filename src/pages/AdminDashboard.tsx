@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ const AdminDashboard = () => {
     completedJobs: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -43,14 +45,25 @@ const AdminDashboard = () => {
 
   const fetchAllData = async () => {
     try {
+      setError(null);
+      console.log('Starting to fetch admin data...');
+      
       await Promise.all([
         fetchPendingUsers(),
         fetchAllJobs(),
         fetchAllUsers(),
         fetchStats()
       ]);
+      
+      console.log('All admin data fetched successfully');
     } catch (error) {
       console.error('Error fetching admin data:', error);
+      setError('Failed to load dashboard data. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -58,15 +71,22 @@ const AdminDashboard = () => {
 
   const fetchPendingUsers = async () => {
     try {
+      console.log('Fetching pending users...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('approval_status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching pending users:', error);
+        throw error;
+      }
+      
+      console.log('Pending users fetched:', data?.length || 0);
       setPendingUsers(data || []);
     } catch (error) {
+      console.error('Failed to fetch pending users:', error);
       toast({
         title: "Error",
         description: "Failed to fetch pending users",
@@ -77,6 +97,7 @@ const AdminDashboard = () => {
 
   const fetchAllJobs = async () => {
     try {
+      console.log('Fetching all jobs...');
       const { data, error } = await supabase
         .from('jobs')
         .select(`
@@ -88,24 +109,37 @@ const AdminDashboard = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching jobs:', error);
+        throw error;
+      }
+      
+      console.log('Jobs fetched:', data?.length || 0);
       setAllJobs(data || []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
+      // Don't show toast for this one as it's part of the main fetch
     }
   };
 
   const fetchAllUsers = async () => {
     try {
+      console.log('Fetching all users...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+      
+      console.log('Users fetched:', data?.length || 0);
       setAllUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
+      // Don't show toast for this one as it's part of the main fetch
     }
   };
 
@@ -156,7 +190,10 @@ const AdminDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const [usersResult, jobsResult, workersResult, employersResult, activeJobsResult, completedJobsResult] = await Promise.all([
+      console.log('Fetching stats...');
+      
+      // Use Promise.allSettled to handle partial failures gracefully
+      const results = await Promise.allSettled([
         supabase.from('profiles').select('id', { count: 'exact' }),
         supabase.from('jobs').select('id', { count: 'exact' }),
         supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'worker'),
@@ -165,15 +202,19 @@ const AdminDashboard = () => {
         supabase.from('jobs').select('id', { count: 'exact' }).eq('status', 'completed')
       ]);
 
+      const [usersResult, jobsResult, workersResult, employersResult, activeJobsResult, completedJobsResult] = results;
+
       setStats({
-        totalUsers: usersResult.count || 0,
+        totalUsers: usersResult.status === 'fulfilled' ? (usersResult.value.count || 0) : 0,
         pendingApprovals: pendingUsers.length,
-        totalJobs: jobsResult.count || 0,
-        totalWorkers: workersResult.count || 0,
-        totalEmployers: employersResult.count || 0,
-        activeJobs: activeJobsResult.count || 0,
-        completedJobs: completedJobsResult.count || 0
+        totalJobs: jobsResult.status === 'fulfilled' ? (jobsResult.value.count || 0) : 0,
+        totalWorkers: workersResult.status === 'fulfilled' ? (workersResult.value.count || 0) : 0,
+        totalEmployers: employersResult.status === 'fulfilled' ? (employersResult.value.count || 0) : 0,
+        activeJobs: activeJobsResult.status === 'fulfilled' ? (activeJobsResult.value.count || 0) : 0,
+        completedJobs: completedJobsResult.status === 'fulfilled' ? (completedJobsResult.value.count || 0) : 0
       });
+      
+      console.log('Stats calculated successfully');
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -181,20 +222,29 @@ const AdminDashboard = () => {
 
   const handleApproval = async (userId: string, status: 'approved' | 'rejected') => {
     try {
+      console.log(`Updating user ${userId} status to ${status}`);
+      
       const { error } = await supabase
         .from('profiles')
         .update({ approval_status: status })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating user status:', error);
+        throw error;
+      }
 
       toast({
         title: `User ${status}`,
         description: `The user has been successfully ${status}.`,
       });
 
-      fetchAllData();
+      console.log(`User ${userId} ${status} successfully`);
+      
+      // Refresh data after update
+      await fetchAllData();
     } catch (error) {
+      console.error('Failed to update user status:', error);
       toast({
         title: "Error",
         description: "Failed to update user status",
@@ -206,20 +256,30 @@ const AdminDashboard = () => {
   const toggleJobStatus = async (jobId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'open' ? 'closed' : 'open';
     try {
+      console.log(`Updating job ${jobId} status from ${currentStatus} to ${newStatus}`);
+      
       const { error } = await supabase
         .from('jobs')
         .update({ status: newStatus })
         .eq('id', jobId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating job status:', error);
+        throw error;
+      }
 
       toast({
         title: "Job Updated",
         description: `Job status changed to ${newStatus}.`,
       });
 
-      fetchAllJobs();
+      console.log(`Job ${jobId} status updated to ${newStatus}`);
+      
+      // Refresh jobs data
+      await fetchAllJobs();
+      await fetchStats();
     } catch (error) {
+      console.error('Failed to update job status:', error);
       toast({
         title: "Error",
         description: "Failed to update job status",
@@ -233,6 +293,22 @@ const AdminDashboard = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-lg">Loading admin dashboard...</div>
+          <div className="text-sm text-gray-500 mt-2">Fetching users, jobs, and statistics...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+          <div className="text-lg font-semibold text-gray-900 mb-2">Dashboard Error</div>
+          <div className="text-gray-600 mb-4">{error}</div>
+          <Button onClick={fetchAllData}>
+            Try Again
+          </Button>
         </div>
       </div>
     );
@@ -313,7 +389,7 @@ const AdminDashboard = () => {
           <TabsList>
             <TabsTrigger value="pending">Pending Approvals ({pendingUsers.length})</TabsTrigger>
             <TabsTrigger value="users">All Users ({allUsers.length})</TabsTrigger>
-            <TabsTrigger value="jobs">All Jobs</TabsTrigger>
+            <TabsTrigger value="jobs">All Jobs ({allJobs.length})</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
           
@@ -505,6 +581,14 @@ const AdminDashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
+                
+                {filteredUsers.length === 0 && (
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium">No users found</h3>
+                    <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -554,6 +638,14 @@ const AdminDashboard = () => {
                     ))}
                   </TableBody>
                 </Table>
+                
+                {allJobs.length === 0 && (
+                  <div className="text-center py-12">
+                    <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <h3 className="text-lg font-medium">No jobs found</h3>
+                    <p className="text-gray-500">No jobs have been posted yet</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
