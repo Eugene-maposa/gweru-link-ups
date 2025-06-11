@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle } from "lucide-react";
+import { useEffect } from "react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +32,14 @@ const Auth = () => {
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, user, userProfile } = useAuth();
+
+  // Redirect if already authenticated and approved
+  useEffect(() => {
+    if (user && userProfile?.approval_status === 'approved') {
+      navigate('/dashboard');
+    }
+  }, [user, userProfile, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,14 +110,28 @@ const Auth = () => {
       return;
     }
     
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(signUpData.email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+    
     const { error } = await signUp(signUpData.email, signUpData.password, signUpData);
     
     if (error) {
       let errorMessage = error.message;
-      if (error.message.includes('already registered')) {
+      if (error.message.includes('already registered') || error.message.includes('User already registered')) {
         errorMessage = "An account with this email already exists. Please sign in instead.";
       } else if (error.message.includes('national_id')) {
         errorMessage = "This National ID is already registered. Please check your ID number.";
+      } else if (error.message.includes('duplicate key value')) {
+        errorMessage = "This email or National ID is already registered. Please use different credentials.";
       }
       
       toast({
@@ -128,6 +150,14 @@ const Auth = () => {
         location: '',
         password: ''
       });
+      
+      // Show success for a few seconds then suggest sign in
+      setTimeout(() => {
+        toast({
+          title: "Next steps",
+          description: "You can now sign in after confirming your email address.",
+        });
+      }, 3000);
     }
     setIsLoading(false);
   };
@@ -181,6 +211,11 @@ const Auth = () => {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
+                <div className="text-center">
+                  <Button variant="link" onClick={() => navigate('/admin-login')} className="text-sm">
+                    Admin Login
+                  </Button>
+                </div>
               </form>
             </TabsContent>
             

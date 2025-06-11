@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,10 +8,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ApprovalStatus from "@/components/ApprovalStatus";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { userProfile, signOut } = useAuth();
+  const { userProfile, signOut, loading: authLoading, user } = useAuth();
+  const { toast } = useToast();
   const [nearbyJobs, setNearbyJobs] = useState<any[]>([]);
   const [myApplications, setMyApplications] = useState<any[]>([]);
   const [myJobs, setMyJobs] = useState<any[]>([]);
@@ -25,15 +26,35 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
 
+  // Redirect if not authenticated
   useEffect(() => {
-    if (userProfile?.approval_status === 'approved') {
-      fetchDashboardData();
+    if (!authLoading && !user) {
+      console.log('User not authenticated, redirecting to auth');
+      navigate('/auth');
     }
-    setLoading(false);
-  }, [userProfile]);
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && userProfile) {
+      if (userProfile.approval_status === 'approved') {
+        fetchDashboardData();
+      } else {
+        setLoading(false);
+      }
+    } else if (!authLoading && user && !userProfile) {
+      // User exists but no profile, might be incomplete signup
+      setLoading(false);
+      toast({
+        title: "Profile incomplete",
+        description: "Please complete your profile setup or wait for admin approval.",
+        variant: "destructive"
+      });
+    }
+  }, [userProfile, authLoading, user]);
 
   const fetchDashboardData = async () => {
     try {
+      setLoading(true);
       if (userProfile?.role === 'worker') {
         await Promise.all([
           fetchJobs(),
@@ -45,11 +66,18 @@ const Dashboard = () => {
           fetchMyJobs(),
           fetchEmployerStats()
         ]);
-      } else {
+      } else if (userProfile?.role === 'admin') {
         await fetchJobs();
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast({
+        title: "Error loading dashboard",
+        description: "Failed to load dashboard data. Please try refreshing the page.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,7 +95,10 @@ const Dashboard = () => {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching jobs:', error);
+        return;
+      }
       setNearbyJobs(data || []);
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -91,7 +122,10 @@ const Dashboard = () => {
         .eq('employer_id', userProfile?.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching my jobs:', error);
+        return;
+      }
       setMyJobs(data || []);
     } catch (error) {
       console.error('Error fetching my jobs:', error);
@@ -116,7 +150,10 @@ const Dashboard = () => {
         .eq('worker_id', userProfile?.id)
         .order('applied_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching applications:', error);
+        return;
+      }
       setMyApplications(data || []);
     } catch (error) {
       console.error('Error fetching applications:', error);
@@ -130,11 +167,10 @@ const Dashboard = () => {
         .from('worker_profiles')
         .select('*')
         .eq('user_id', userProfile?.id)
-        .single();
+        .maybeSingle();
 
       if (workerError && workerError.code !== 'PGRST116') {
         console.error('Error fetching worker stats:', workerError);
-        return;
       }
 
       // Get application count
@@ -146,7 +182,7 @@ const Dashboard = () => {
       setDashboardStats({
         totalJobs: workerData?.total_jobs_completed || 0,
         totalApplications: applicationCount || 0,
-        totalEarned: (workerData?.total_jobs_completed || 0) * 50, // Estimated
+        totalEarned: (workerData?.total_jobs_completed || 0) * 50,
         completedJobs: workerData?.total_jobs_completed || 0,
         averageRating: workerData?.rating || 5.0
       });
@@ -184,9 +220,46 @@ const Dashboard = () => {
     }
   };
 
-  // Show approval status if not approved
-  if (userProfile && userProfile.approval_status !== 'approved') {
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show approval status if user exists but not approved
+  if (user && userProfile && userProfile.approval_status !== 'approved') {
     return <ApprovalStatus />;
+  }
+
+  // Show message if user exists but no profile
+  if (user && !userProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Profile Setup Required</CardTitle>
+            <CardDescription>
+              Your account needs to be set up. Please contact support or try signing up again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Button onClick={() => navigate('/auth')} className="w-full">
+                Go to Sign Up
+              </Button>
+              <Button variant="outline" onClick={signOut} className="w-full">
+                Sign Out
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (loading) {
@@ -207,6 +280,7 @@ const Dashboard = () => {
     navigate(`/job/${jobId}`);
   };
 
+  // Show quick actions based on user role
   const getQuickActions = () => {
     if (userProfile?.role === 'admin') {
       return (
@@ -256,6 +330,7 @@ const Dashboard = () => {
     }
   };
 
+  // Show stats cards based on user role
   const getStatsCards = () => {
     if (userProfile?.role === 'worker') {
       return (

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,8 +30,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user && event === 'SIGNED_IN') {
-          // Fetch user profile with a small delay to ensure any triggers have run
+        if (session?.user) {
+          // Fetch user profile immediately
           setTimeout(async () => {
             try {
               const { data: profile, error } = await supabase
@@ -41,18 +42,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               
               if (error) {
                 console.error('Error fetching profile:', error);
+                // If profile doesn't exist, user might need to complete signup
+                setUserProfile(null);
               } else {
                 console.log('Profile fetched:', profile);
                 setUserProfile(profile);
               }
             } catch (err) {
               console.error('Error in profile fetch:', err);
+              setUserProfile(null);
             }
-          }, 1000);
+            setLoading(false);
+          }, 500);
         } else {
           setUserProfile(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -72,13 +77,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (email: string, password: string, userData: any) => {
     try {
       console.log('Starting signup process for:', email);
+      setLoading(true);
       
       // First, sign up the user with metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             full_name: userData.fullName,
             phone: userData.phone,
@@ -91,10 +97,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (authError) {
         console.error('Auth signup error:', authError);
+        setLoading(false);
         return { error: authError };
       }
 
       if (authData.user) {
+        // Create profile immediately
+        try {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              email: email,
+              full_name: userData.fullName,
+              phone: userData.phone,
+              national_id: userData.nationalId,
+              role: userData.role,
+              location: userData.location,
+              approval_status: 'pending'
+            });
+
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+          } else {
+            console.log('Profile created successfully');
+          }
+        } catch (profileErr) {
+          console.error('Error creating profile:', profileErr);
+        }
+
         // Send email notification to admin
         try {
           const { error: emailError } = await supabase.functions.invoke('notify-admin-registration', {
@@ -111,20 +142,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           if (emailError) {
             console.error('Failed to send admin notification email:', emailError);
-            // Don't fail the signup if email fails
           } else {
             console.log('Admin notification email sent successfully');
           }
         } catch (emailError) {
           console.error('Error sending admin notification:', emailError);
-          // Don't fail the signup if email fails
         }
       }
 
       console.log('User created successfully:', authData.user?.id);
+      setLoading(false);
       return { error: null };
     } catch (error) {
       console.error('Signup error:', error);
+      setLoading(false);
       return { error };
     }
   };
@@ -132,6 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       console.log('Starting signin process for:', email);
+      setLoading(true);
       
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -144,9 +176,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Signin successful');
       }
       
+      setLoading(false);
       return { error };
     } catch (error) {
       console.error('Signin error:', error);
+      setLoading(false);
       return { error };
     }
   };
@@ -154,44 +188,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInAsAdmin = async (email: string, password: string) => {
     try {
       console.log('Starting admin signin process for:', email);
+      setLoading(true);
       
-      // Check if this is the default admin credentials
-      if (email === 'mapseujers@gmail.com' && password === 'maps@#16') {
-        // For default admin, we'll create a temporary session
-        // In a real app, you'd want to have proper admin accounts
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (error) {
-          // If admin account doesn't exist, we'll handle it gracefully
-          console.log('Admin account login attempt:', error.message);
-          return { error: { message: 'Admin credentials not found. Please contact system administrator.' } };
-        }
-        
-        return { error: null };
-      } else {
-        // For other admin accounts, check if they have admin role
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        return { error };
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.log('Admin account login attempt:', error.message);
+        setLoading(false);
+        return { error: { message: 'Invalid admin credentials. Please check your email and password.' } };
       }
+      
+      setLoading(false);
+      return { error: null };
     } catch (error) {
       console.error('Admin signin error:', error);
+      setLoading(false);
       return { error };
     }
   };
 
   const signOut = async () => {
     try {
+      setLoading(true);
       await supabase.auth.signOut();
       setUserProfile(null);
+      setSession(null);
+      setUser(null);
+      setLoading(false);
     } catch (error) {
       console.error('Signout error:', error);
+      setLoading(false);
     }
   };
 
