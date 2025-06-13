@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +31,28 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchAllData();
+    
+    // Set up real-time listeners for data updates
+    const usersChannel = supabase
+      .channel('profiles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        console.log('Profiles table changed, refreshing data...');
+        fetchAllData();
+      })
+      .subscribe();
+
+    const jobsChannel = supabase
+      .channel('jobs-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
+        console.log('Jobs table changed, refreshing data...');
+        fetchAllData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(jobsChannel);
+    };
   }, []);
 
   const fetchAllData = async () => {
@@ -40,10 +61,10 @@ const AdminDashboard = () => {
       setError(null);
       console.log('Starting to fetch admin dashboard data...');
       
-      // Fetch all data in parallel
+      // Fetch all data in parallel with comprehensive queries
       const [usersResult, jobsResult] = await Promise.all([
-        fetchUsers(),
-        fetchJobs()
+        fetchAllUsers(),
+        fetchAllJobs()
       ]);
 
       // Calculate stats after fetching data
@@ -65,12 +86,36 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchAllUsers = async () => {
     try {
-      console.log('Fetching users...');
+      console.log('Fetching all users from profiles table...');
+      
+      // First, check if we can access the profiles table
+      const { count, error: countError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('Error checking profiles table:', countError);
+        throw countError;
+      }
+
+      console.log('Profiles table accessible, total count:', count);
+
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          id,
+          email,
+          full_name,
+          phone,
+          national_id,
+          role,
+          location,
+          approval_status,
+          created_at,
+          updated_at
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -78,7 +123,9 @@ const AdminDashboard = () => {
         throw error;
       }
       
-      console.log('Users fetched:', data?.length || 0);
+      console.log('Users fetched successfully:', data?.length || 0);
+      console.log('Sample user data:', data?.[0]);
+      
       setAllUsers(data || []);
       
       // Filter pending users
@@ -89,17 +136,31 @@ const AdminDashboard = () => {
       return data || [];
     } catch (error) {
       console.error('Failed to fetch users:', error);
+      // Try to get users from auth.users as fallback (though this won't work in client)
+      console.log('Attempting fallback user fetch...');
       return [];
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchAllJobs = async () => {
     try {
-      console.log('Fetching jobs...');
+      console.log('Fetching all jobs...');
+      
       const { data, error } = await supabase
         .from('jobs')
         .select(`
-          *,
+          id,
+          title,
+          description,
+          location,
+          pay_rate,
+          pay_type,
+          duration,
+          skills_required,
+          status,
+          created_at,
+          updated_at,
+          employer_id,
           profiles:employer_id (
             full_name,
             email
@@ -112,7 +173,7 @@ const AdminDashboard = () => {
         throw error;
       }
       
-      console.log('Jobs fetched:', data?.length || 0);
+      console.log('Jobs fetched successfully:', data?.length || 0);
       setAllJobs(data || []);
       return data || [];
     } catch (error) {

@@ -31,29 +31,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile immediately
-          setTimeout(async () => {
-            try {
-              const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-              
-              if (error) {
-                console.error('Error fetching profile:', error);
-                // If profile doesn't exist, user might need to complete signup
-                setUserProfile(null);
-              } else {
-                console.log('Profile fetched:', profile);
-                setUserProfile(profile);
-              }
-            } catch (err) {
-              console.error('Error in profile fetch:', err);
-              setUserProfile(null);
-            }
-            setLoading(false);
-          }, 500);
+          // Fetch user profile with retry logic
+          await fetchUserProfile(session.user.id);
         } else {
           setUserProfile(null);
           setLoading(false);
@@ -74,24 +53,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const fetchUserProfile = async (userId: string, retries = 3) => {
+    try {
+      console.log('Fetching profile for user:', userId);
+      
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        if (retries > 0) {
+          console.log(`Retrying profile fetch, ${retries} attempts left`);
+          setTimeout(() => fetchUserProfile(userId, retries - 1), 1000);
+          return;
+        }
+        setUserProfile(null);
+      } else if (profile) {
+        console.log('Profile fetched successfully:', profile);
+        setUserProfile(profile);
+      } else {
+        console.log('No profile found for user:', userId);
+        setUserProfile(null);
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error('Error in profile fetch:', err);
+      if (retries > 0) {
+        setTimeout(() => fetchUserProfile(userId, retries - 1), 1000);
+      } else {
+        setUserProfile(null);
+        setLoading(false);
+      }
+    }
+  };
+
   const signUp = async (email: string, password: string, userData: any) => {
     try {
       console.log('Starting signup process for:', email);
       setLoading(true);
       
-      // First, sign up the user with metadata
+      // First, sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
-          data: {
-            full_name: userData.fullName,
-            phone: userData.phone,
-            national_id: userData.nationalId,
-            role: userData.role,
-            location: userData.location
-          }
         }
       });
 
@@ -102,33 +111,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (authData.user) {
-        // Create profile immediately
-        try {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: authData.user.id,
-              email: email,
-              full_name: userData.fullName,
-              phone: userData.phone,
-              national_id: userData.nationalId,
-              role: userData.role,
-              location: userData.location,
-              approval_status: 'pending'
-            });
+        console.log('User created, now creating profile:', authData.user.id);
+        
+        // Wait a moment for the user to be fully created
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Create profile with proper error handling
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: email,
+            full_name: userData.fullName,
+            phone: userData.phone,
+            national_id: userData.nationalId,
+            role: userData.role,
+            location: userData.location,
+            approval_status: 'pending'
+          });
 
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-          } else {
-            console.log('Profile created successfully');
-          }
-        } catch (profileErr) {
-          console.error('Error creating profile:', profileErr);
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Even if profile creation fails, the user is created, so don't return an error
+          // The profile can be created later or manually
+        } else {
+          console.log('Profile created successfully');
         }
 
-        // Send email notification to admin
+        // Send email notification to admin (optional, don't fail signup if this fails)
         try {
-          const { error: emailError } = await supabase.functions.invoke('notify-admin-registration', {
+          await supabase.functions.invoke('notify-admin-registration', {
             body: {
               userId: authData.user.id,
               userEmail: email,
@@ -139,18 +151,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               location: userData.location
             }
           });
-
-          if (emailError) {
-            console.error('Failed to send admin notification email:', emailError);
-          } else {
-            console.log('Admin notification email sent successfully');
-          }
+          console.log('Admin notification sent successfully');
         } catch (emailError) {
-          console.error('Error sending admin notification:', emailError);
+          console.error('Failed to send admin notification:', emailError);
+          // Don't fail signup for email notification failure
         }
       }
 
-      console.log('User created successfully:', authData.user?.id);
+      console.log('Signup completed successfully');
       setLoading(false);
       return { error: null };
     } catch (error) {
@@ -196,7 +204,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (error) {
-        console.log('Admin account login attempt:', error.message);
+        console.log('Admin account login attempt failed:', error.message);
         setLoading(false);
         return { error: { message: 'Invalid admin credentials. Please check your email and password.' } };
       }
