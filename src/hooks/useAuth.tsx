@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,26 +115,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Wait a moment for the user to be fully created
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Create profile with proper error handling
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email: email,
-            full_name: userData.fullName,
-            phone: userData.phone,
-            national_id: userData.nationalId,
-            role: userData.role,
-            location: userData.location,
-            approval_status: 'pending'
-          });
+        // Create profile with retry mechanism
+        let profileCreated = false;
+        let retries = 3;
+        
+        while (!profileCreated && retries > 0) {
+          try {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .insert({
+                id: authData.user.id,
+                email: email,
+                full_name: userData.fullName,
+                phone: userData.phone,
+                national_id: userData.nationalId,
+                role: userData.role,
+                location: userData.location,
+                approval_status: 'pending'
+              });
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          // Even if profile creation fails, the user is created, so don't return an error
-          // The profile can be created later or manually
-        } else {
-          console.log('Profile created successfully');
+            if (profileError) {
+              console.error('Profile creation error (attempt ' + (4 - retries) + '):', profileError);
+              if (retries === 1) {
+                // On last attempt, don't fail the signup completely
+                console.warn('Profile creation failed after all retries, but user account created');
+                break;
+              }
+              retries--;
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              console.log('Profile created successfully');
+              profileCreated = true;
+            }
+          } catch (err) {
+            console.error('Exception during profile creation:', err);
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
         }
 
         // Send email notification to admin (optional, don't fail signup if this fails)

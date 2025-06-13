@@ -61,6 +61,18 @@ const AdminDashboard = () => {
       setError(null);
       console.log('Starting to fetch admin dashboard data...');
       
+      // First, let's check if we can access the database at all
+      const { data: testConnection, error: connectionError } = await supabase
+        .from('profiles')
+        .select('count(*)', { count: 'exact', head: true });
+
+      if (connectionError) {
+        console.error('Database connection error:', connectionError);
+        throw new Error(`Database connection failed: ${connectionError.message}`);
+      }
+
+      console.log('Database connection successful. Total profiles count:', testConnection);
+      
       // Fetch all data in parallel with comprehensive queries
       const [usersResult, jobsResult] = await Promise.all([
         fetchAllUsers(),
@@ -75,10 +87,10 @@ const AdminDashboard = () => {
       console.log('Admin dashboard data fetched successfully');
     } catch (error) {
       console.error('Error fetching admin data:', error);
-      setError('Failed to load dashboard data. Please try again.');
+      setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`);
       toast({
         title: "Error",
-        description: "Failed to load dashboard data",
+        description: `Failed to load dashboard data: ${error.message || 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {
@@ -90,17 +102,22 @@ const AdminDashboard = () => {
     try {
       console.log('Fetching all users from profiles table...');
       
-      // First, check if we can access the profiles table
-      const { count, error: countError } = await supabase
+      // Try to fetch with a simpler query first to test access
+      const { data: simpleTest, error: simpleError } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true });
+        .select('id, email, full_name')
+        .limit(1);
 
-      if (countError) {
-        console.error('Error checking profiles table:', countError);
-        throw countError;
+      if (simpleError) {
+        console.error('Simple query failed:', simpleError);
+        // If simple query fails, it's likely an RLS issue
+        if (simpleError.code === 'PGRST116' || simpleError.message?.includes('permission denied')) {
+          throw new Error('Admin access denied. Please check RLS policies for the profiles table.');
+        }
+        throw simpleError;
       }
 
-      console.log('Profiles table accessible, total count:', count);
+      console.log('Simple query successful, fetching full data...');
 
       const { data, error } = await supabase
         .from('profiles')
@@ -125,20 +142,21 @@ const AdminDashboard = () => {
       
       console.log('Users fetched successfully:', data?.length || 0);
       console.log('Sample user data:', data?.[0]);
+      console.log('All users data:', data);
       
       setAllUsers(data || []);
       
       // Filter pending users
       const pending = (data || []).filter(user => user.approval_status === 'pending');
       setPendingUsers(pending);
-      console.log('Pending users:', pending.length);
+      console.log('Pending users found:', pending.length);
+      console.log('Pending users data:', pending);
       
       return data || [];
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      // Try to get users from auth.users as fallback (though this won't work in client)
-      console.log('Attempting fallback user fetch...');
-      return [];
+      // Re-throw the error so it can be handled by the parent function
+      throw error;
     }
   };
 
