@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import PendingApprovals from "@/components/admin/PendingApprovals";
 import UserManagement from "@/components/admin/UserManagement";
@@ -12,6 +14,7 @@ import JobManagement from "@/components/admin/JobManagement";
 import AnalyticsSection from "@/components/admin/AnalyticsSection";
 
 const AdminDashboard = () => {
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [allJobs, setAllJobs] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -29,51 +32,70 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Check if user is admin
+  const isAdmin = userProfile?.role === 'admin';
+
   useEffect(() => {
-    fetchAllData();
-    
-    // Set up real-time listeners for data updates
-    const usersChannel = supabase
-      .channel('profiles-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        console.log('Profiles table changed, refreshing data...');
-        fetchAllData();
-      })
-      .subscribe();
+    // Redirect if not admin
+    if (!authLoading && (!user || !isAdmin)) {
+      console.log('User is not admin, redirecting to login');
+      navigate('/admin-login');
+      return;
+    }
 
-    const jobsChannel = supabase
-      .channel('jobs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
-        console.log('Jobs table changed, refreshing data...');
-        fetchAllData();
-      })
-      .subscribe();
+    // Only fetch data if user is authenticated and is admin
+    if (user && isAdmin) {
+      fetchAllData();
+      
+      // Set up real-time listeners for data updates
+      const usersChannel = supabase
+        .channel('admin-profiles-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          console.log('Profiles table changed, refreshing data...');
+          fetchAllData();
+        })
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(usersChannel);
-      supabase.removeChannel(jobsChannel);
-    };
-  }, []);
+      const jobsChannel = supabase
+        .channel('admin-jobs-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
+          console.log('Jobs table changed, refreshing data...');
+          fetchAllData();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(usersChannel);
+        supabase.removeChannel(jobsChannel);
+      };
+    }
+  }, [user, isAdmin, authLoading, navigate]);
 
   const fetchAllData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Starting to fetch admin dashboard data...');
+      console.log('Starting admin data fetch for user:', user?.id);
       
-      // First, let's check if we can access the database at all
-      const { data: testConnection, error: connectionError } = await supabase
+      // Verify admin access by checking current user profile
+      if (!user || !isAdmin) {
+        throw new Error('Admin access required');
+      }
+
+      // Test basic database connectivity with a simple query
+      console.log('Testing database connectivity...');
+      const { data: connectionTest, error: connectionError } = await supabase
         .from('profiles')
-        .select('count(*)', { count: 'exact', head: true });
+        .select('count', { count: 'exact', head: true });
 
       if (connectionError) {
-        console.error('Database connection error:', connectionError);
+        console.error('Database connection test failed:', connectionError);
         throw new Error(`Database connection failed: ${connectionError.message}`);
       }
 
-      console.log('Database connection successful. Total profiles count:', testConnection);
+      console.log('Database connection successful. Running admin queries...');
       
-      // Fetch all data in parallel with comprehensive queries
+      // Fetch all data in parallel
       const [usersResult, jobsResult] = await Promise.all([
         fetchAllUsers(),
         fetchAllJobs()
@@ -84,13 +106,14 @@ const AdminDashboard = () => {
         calculateStats(usersResult, jobsResult);
       }
       
-      console.log('Admin dashboard data fetched successfully');
-    } catch (error) {
+      console.log('Admin dashboard data loaded successfully');
+    } catch (error: any) {
       console.error('Error fetching admin data:', error);
-      setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`);
+      const errorMessage = error.message || 'Failed to load dashboard data';
+      setError(errorMessage);
       toast({
         title: "Error",
-        description: `Failed to load dashboard data: ${error.message || 'Unknown error'}`,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -100,25 +123,22 @@ const AdminDashboard = () => {
 
   const fetchAllUsers = async () => {
     try {
-      console.log('Fetching all users from profiles table...');
+      console.log('Fetching all users as admin...');
       
-      // Try to fetch with a simpler query first to test access
-      const { data: simpleTest, error: simpleError } = await supabase
+      // Use a simple query first to test admin access
+      const { data: testData, error: testError } = await supabase
         .from('profiles')
-        .select('id, email, full_name')
+        .select('id, role')
         .limit(1);
 
-      if (simpleError) {
-        console.error('Simple query failed:', simpleError);
-        // If simple query fails, it's likely an RLS issue
-        if (simpleError.code === 'PGRST116' || simpleError.message?.includes('permission denied')) {
-          throw new Error('Admin access denied. Please check RLS policies for the profiles table.');
-        }
-        throw simpleError;
+      if (testError) {
+        console.error('Admin access test failed:', testError);
+        throw new Error(`Admin access denied: ${testError.message}`);
       }
 
-      console.log('Simple query successful, fetching full data...');
+      console.log('Admin access confirmed, fetching all profiles...');
 
+      // Fetch all user profiles
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -142,7 +162,6 @@ const AdminDashboard = () => {
       
       console.log('Users fetched successfully:', data?.length || 0);
       console.log('Sample user data:', data?.[0]);
-      console.log('All users data:', data);
       
       setAllUsers(data || []);
       
@@ -150,19 +169,17 @@ const AdminDashboard = () => {
       const pending = (data || []).filter(user => user.approval_status === 'pending');
       setPendingUsers(pending);
       console.log('Pending users found:', pending.length);
-      console.log('Pending users data:', pending);
       
       return data || [];
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      // Re-throw the error so it can be handled by the parent function
       throw error;
     }
   };
 
   const fetchAllJobs = async () => {
     try {
-      console.log('Fetching all jobs...');
+      console.log('Fetching all jobs as admin...');
       
       const { data, error } = await supabase
         .from('jobs')
@@ -232,7 +249,7 @@ const AdminDashboard = () => {
 
   const handleApproval = async (userId: string, status: 'approved' | 'rejected') => {
     try {
-      console.log(`Updating user ${userId} status to ${status}`);
+      console.log(`Admin updating user ${userId} status to ${status}`);
       
       const { error } = await supabase
         .from('profiles')
@@ -256,11 +273,11 @@ const AdminDashboard = () => {
       
       // Refresh data after approval
       await fetchAllData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update user status:', error);
       toast({
         title: "Error",
-        description: "Failed to update user status",
+        description: `Failed to update user status: ${error.message}`,
         variant: "destructive"
       });
     }
@@ -269,7 +286,7 @@ const AdminDashboard = () => {
   const toggleJobStatus = async (jobId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'open' ? 'closed' : 'open';
     try {
-      console.log(`Updating job ${jobId} status from ${currentStatus} to ${newStatus}`);
+      console.log(`Admin updating job ${jobId} status from ${currentStatus} to ${newStatus}`);
       
       const { error } = await supabase
         .from('jobs')
@@ -293,16 +310,29 @@ const AdminDashboard = () => {
       
       // Refresh data after job status change
       await fetchAllData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update job status:', error);
       toast({
         title: "Error",
-        description: "Failed to update job status",
+        description: `Failed to update job status: ${error.message}`,
         variant: "destructive"
       });
     }
   };
 
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="text-lg font-medium">Checking admin access...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while fetching data
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -350,6 +380,9 @@ const AdminDashboard = () => {
               </Button>
             </div>
             <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-600">
+                Welcome, {userProfile?.full_name || user?.email}
+              </div>
               <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Main Dashboard
               </Button>
