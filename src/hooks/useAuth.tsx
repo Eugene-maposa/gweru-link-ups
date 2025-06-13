@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,17 +23,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AuthProvider useEffect - Setting up auth listener');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
+        console.log('Auth state changed:', event, 'User ID:', session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile with retry logic
+          // Fetch user profile
+          console.log('Fetching user profile for:', session.user.id);
           await fetchUserProfile(session.user.id);
         } else {
+          console.log('No session, clearing profile');
           setUserProfile(null);
           setLoading(false);
         }
@@ -94,7 +99,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Starting signup process for:', email);
       setLoading(true);
       
-      // First, sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -110,73 +114,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (authData.user) {
-        console.log('User created, now creating profile:', authData.user.id);
+        console.log('User created, creating profile:', authData.user.id);
         
         // Wait a moment for the user to be fully created
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Create profile with retry mechanism
-        let profileCreated = false;
-        let retries = 3;
-        
-        while (!profileCreated && retries > 0) {
-          try {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .insert({
-                id: authData.user.id,
-                email: email,
-                full_name: userData.fullName,
-                phone: userData.phone,
-                national_id: userData.nationalId,
-                role: userData.role,
-                location: userData.location,
-                approval_status: 'pending'
-              });
-
-            if (profileError) {
-              console.error('Profile creation error (attempt ' + (4 - retries) + '):', profileError);
-              if (retries === 1) {
-                // On last attempt, don't fail the signup completely
-                console.warn('Profile creation failed after all retries, but user account created');
-                break;
-              }
-              retries--;
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              console.log('Profile created successfully');
-              profileCreated = true;
-            }
-          } catch (err) {
-            console.error('Exception during profile creation:', err);
-            retries--;
-            if (retries > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-        }
-
-        // Send email notification to admin (optional, don't fail signup if this fails)
-        try {
-          await supabase.functions.invoke('notify-admin-registration', {
-            body: {
-              userId: authData.user.id,
-              userEmail: email,
-              fullName: userData.fullName,
-              role: userData.role,
-              nationalId: userData.nationalId,
-              phone: userData.phone,
-              location: userData.location
-            }
+        // Create profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: email,
+            full_name: userData.fullName,
+            phone: userData.phone,
+            national_id: userData.nationalId,
+            role: userData.role,
+            location: userData.location,
+            approval_status: 'pending'
           });
-          console.log('Admin notification sent successfully');
-        } catch (emailError) {
-          console.error('Failed to send admin notification:', emailError);
-          // Don't fail signup for email notification failure
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Don't fail signup completely for profile creation issues
+        } else {
+          console.log('Profile created successfully');
         }
       }
 
-      console.log('Signup completed successfully');
       setLoading(false);
       return { error: null };
     } catch (error) {
@@ -195,12 +159,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password
       });
-      
-      if (error) {
-        console.error('Signin error:', error);
-      } else {
-        console.log('Signin successful');
-      }
       
       setLoading(false);
       return { error };
@@ -222,7 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (error) {
-        console.log('Admin account login attempt failed:', error.message);
+        console.log('Admin signin failed:', error.message);
         setLoading(false);
         return { error: { message: 'Invalid admin credentials. Please check your email and password.' } };
       }

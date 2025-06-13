@@ -36,166 +36,89 @@ const AdminDashboard = () => {
   const isAdmin = userProfile?.role === 'admin';
 
   useEffect(() => {
-    // Redirect if not admin
-    if (!authLoading && (!user || !isAdmin)) {
+    console.log('AdminDashboard useEffect triggered');
+    console.log('Auth loading:', authLoading);
+    console.log('User:', user?.id);
+    console.log('User profile:', userProfile);
+    console.log('Is admin:', isAdmin);
+
+    // Wait for auth to complete
+    if (authLoading) {
+      console.log('Still loading auth, waiting...');
+      return;
+    }
+
+    // Redirect if not authenticated
+    if (!user) {
+      console.log('No user found, redirecting to admin login');
+      navigate('/admin-login');
+      return;
+    }
+
+    // If we have a user but no profile yet, wait a bit more
+    if (!userProfile) {
+      console.log('User exists but no profile yet, waiting...');
+      return;
+    }
+
+    // Check if user is admin
+    if (!isAdmin) {
       console.log('User is not admin, redirecting to login');
       navigate('/admin-login');
       return;
     }
 
-    // Only fetch data if user is authenticated and is admin
-    if (user && isAdmin) {
-      fetchAllData();
-      
-      // Set up real-time listeners for data updates
-      const usersChannel = supabase
-        .channel('admin-profiles-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          console.log('Profiles table changed, refreshing data...');
-          fetchAllData();
-        })
-        .subscribe();
-
-      const jobsChannel = supabase
-        .channel('admin-jobs-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
-          console.log('Jobs table changed, refreshing data...');
-          fetchAllData();
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(usersChannel);
-        supabase.removeChannel(jobsChannel);
-      };
-    }
-  }, [user, isAdmin, authLoading, navigate]);
+    // If all checks pass, fetch data
+    console.log('All checks passed, fetching admin data...');
+    fetchAllData();
+  }, [user, userProfile, isAdmin, authLoading, navigate]);
 
   const fetchAllData = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Starting admin data fetch for user:', user?.id);
-      
-      // Verify admin access by checking current user profile
-      if (!user || !isAdmin) {
-        throw new Error('Admin access required');
-      }
+      console.log('Starting fetchAllData...');
 
-      // Test basic database connectivity with a simple query
-      console.log('Testing database connectivity...');
-      const { data: connectionTest, error: connectionError } = await supabase
-        .from('profiles')
-        .select('count', { count: 'exact', head: true });
-
-      if (connectionError) {
-        console.error('Database connection test failed:', connectionError);
-        throw new Error(`Database connection failed: ${connectionError.message}`);
-      }
-
-      console.log('Database connection successful. Running admin queries...');
-      
-      // Fetch all data in parallel
-      const [usersResult, jobsResult] = await Promise.all([
-        fetchAllUsers(),
-        fetchAllJobs()
-      ]);
-
-      // Calculate stats after fetching data
-      if (usersResult && jobsResult) {
-        calculateStats(usersResult, jobsResult);
-      }
-      
-      console.log('Admin dashboard data loaded successfully');
-    } catch (error: any) {
-      console.error('Error fetching admin data:', error);
-      const errorMessage = error.message || 'Failed to load dashboard data';
-      setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAllUsers = async () => {
-    try {
-      console.log('Fetching all users as admin...');
-      
-      // Use a simple query first to test admin access
+      // Test basic connection first
+      console.log('Testing basic database connection...');
       const { data: testData, error: testError } = await supabase
         .from('profiles')
-        .select('id, role')
+        .select('id')
         .limit(1);
 
       if (testError) {
-        console.error('Admin access test failed:', testError);
-        throw new Error(`Admin access denied: ${testError.message}`);
+        console.error('Basic connection test failed:', testError);
+        throw new Error(`Database connection failed: ${testError.message}`);
       }
 
-      console.log('Admin access confirmed, fetching all profiles...');
+      console.log('Basic connection successful, fetching all data...');
 
-      // Fetch all user profiles
-      const { data, error } = await supabase
+      // Fetch users
+      console.log('Fetching users...');
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          email,
-          full_name,
-          phone,
-          national_id,
-          role,
-          location,
-          approval_status,
-          created_at,
-          updated_at
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching users:', error);
-        throw error;
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        throw new Error(`Failed to fetch users: ${usersError.message}`);
       }
-      
-      console.log('Users fetched successfully:', data?.length || 0);
-      console.log('Sample user data:', data?.[0]);
-      
-      setAllUsers(data || []);
+
+      console.log('Users fetched:', usersData?.length || 0);
+      setAllUsers(usersData || []);
       
       // Filter pending users
-      const pending = (data || []).filter(user => user.approval_status === 'pending');
+      const pending = (usersData || []).filter(user => user.approval_status === 'pending');
       setPendingUsers(pending);
-      console.log('Pending users found:', pending.length);
-      
-      return data || [];
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-      throw error;
-    }
-  };
+      console.log('Pending users:', pending.length);
 
-  const fetchAllJobs = async () => {
-    try {
-      console.log('Fetching all jobs as admin...');
-      
-      const { data, error } = await supabase
+      // Fetch jobs
+      console.log('Fetching jobs...');
+      const { data: jobsData, error: jobsError } = await supabase
         .from('jobs')
         .select(`
-          id,
-          title,
-          description,
-          location,
-          pay_rate,
-          pay_type,
-          duration,
-          skills_required,
-          status,
-          created_at,
-          updated_at,
-          employer_id,
+          *,
           profiles:employer_id (
             full_name,
             email
@@ -203,53 +126,61 @@ const AdminDashboard = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching jobs:', error);
-        throw error;
+      if (jobsError) {
+        console.error('Error fetching jobs:', jobsError);
+        // Don't throw error for jobs, just log it
+        setAllJobs([]);
+      } else {
+        console.log('Jobs fetched:', jobsData?.length || 0);
+        setAllJobs(jobsData || []);
       }
-      
-      console.log('Jobs fetched successfully:', data?.length || 0);
-      setAllJobs(data || []);
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      return [];
+
+      // Calculate stats
+      calculateStats(usersData || [], jobsData || []);
+
+      console.log('All data fetched successfully');
+    } catch (error: any) {
+      console.error('Error in fetchAllData:', error);
+      setError(error.message || 'Failed to load dashboard data');
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to load dashboard data',
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const calculateStats = (users: any[], jobs: any[]) => {
-    try {
-      console.log('Calculating stats with users:', users.length, 'jobs:', jobs.length);
-      
-      const totalUsers = users.length;
-      const pendingApprovals = users.filter(user => user.approval_status === 'pending').length;
-      const totalWorkers = users.filter(user => user.role === 'worker').length;
-      const totalEmployers = users.filter(user => user.role === 'employer').length;
-      
-      const totalJobs = jobs.length;
-      const activeJobs = jobs.filter(job => job.status === 'open').length;
-      const completedJobs = jobs.filter(job => job.status === 'completed').length;
+    console.log('Calculating stats with users:', users.length, 'jobs:', jobs.length);
+    
+    const totalUsers = users.length;
+    const pendingApprovals = users.filter(user => user.approval_status === 'pending').length;
+    const totalWorkers = users.filter(user => user.role === 'worker').length;
+    const totalEmployers = users.filter(user => user.role === 'employer').length;
+    
+    const totalJobs = jobs.length;
+    const activeJobs = jobs.filter(job => job.status === 'open').length;
+    const completedJobs = jobs.filter(job => job.status === 'completed').length;
 
-      const newStats = {
-        totalUsers,
-        pendingApprovals,
-        totalJobs,
-        totalWorkers,
-        totalEmployers,
-        activeJobs,
-        completedJobs
-      };
+    const newStats = {
+      totalUsers,
+      pendingApprovals,
+      totalJobs,
+      totalWorkers,
+      totalEmployers,
+      activeJobs,
+      completedJobs
+    };
 
-      console.log('Calculated stats:', newStats);
-      setStats(newStats);
-    } catch (error) {
-      console.error('Error calculating stats:', error);
-    }
+    console.log('Calculated stats:', newStats);
+    setStats(newStats);
   };
 
   const handleApproval = async (userId: string, status: 'approved' | 'rejected') => {
     try {
-      console.log(`Admin updating user ${userId} status to ${status}`);
+      console.log(`Updating user ${userId} status to ${status}`);
       
       const { error } = await supabase
         .from('profiles')
@@ -269,9 +200,7 @@ const AdminDashboard = () => {
         description: `The user has been successfully ${status}.`,
       });
 
-      console.log(`User ${userId} ${status} successfully`);
-      
-      // Refresh data after approval
+      // Refresh data
       await fetchAllData();
     } catch (error: any) {
       console.error('Failed to update user status:', error);
@@ -286,7 +215,7 @@ const AdminDashboard = () => {
   const toggleJobStatus = async (jobId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'open' ? 'closed' : 'open';
     try {
-      console.log(`Admin updating job ${jobId} status from ${currentStatus} to ${newStatus}`);
+      console.log(`Updating job ${jobId} status from ${currentStatus} to ${newStatus}`);
       
       const { error } = await supabase
         .from('jobs')
@@ -306,9 +235,7 @@ const AdminDashboard = () => {
         description: `Job status changed to ${newStatus}.`,
       });
 
-      console.log(`Job ${jobId} status updated to ${newStatus}`);
-      
-      // Refresh data after job status change
+      // Refresh data
       await fetchAllData();
     } catch (error: any) {
       console.error('Failed to update job status:', error);
@@ -339,7 +266,7 @@ const AdminDashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <div className="text-lg font-medium">Loading admin dashboard...</div>
-          <div className="text-sm text-gray-500 mt-2">Fetching users, jobs, and statistics...</div>
+          <div className="text-sm text-gray-500 mt-2">Fetching users and jobs...</div>
         </div>
       </div>
     );
