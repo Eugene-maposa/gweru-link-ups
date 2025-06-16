@@ -14,7 +14,7 @@ import JobManagement from "@/components/admin/JobManagement";
 import AnalyticsSection from "@/components/admin/AnalyticsSection";
 
 const AdminDashboard = () => {
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, signOut } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [allJobs, setAllJobs] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -29,18 +29,15 @@ const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdminVerified, setIsAdminVerified] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Check if user is admin
-  const isAdmin = userProfile?.role === 'admin';
 
   useEffect(() => {
     console.log('AdminDashboard useEffect triggered');
     console.log('Auth loading:', authLoading);
     console.log('User:', user?.id);
     console.log('User profile:', userProfile);
-    console.log('Is admin:', isAdmin);
 
     // Wait for auth to complete
     if (authLoading) {
@@ -55,45 +52,86 @@ const AdminDashboard = () => {
       return;
     }
 
-    // If we have a user but no profile yet, wait a bit more
-    if (!userProfile) {
-      console.log('User exists but no profile yet, waiting...');
-      return;
-    }
+    // Verify admin access and fetch data
+    verifyAdminAccess();
+  }, [user, userProfile, authLoading, navigate]);
 
-    // Check if user is admin
-    if (!isAdmin) {
-      console.log('User is not admin, redirecting to login');
-      navigate('/admin-login');
-      return;
-    }
-
-    // If all checks pass, fetch data
-    console.log('All checks passed, fetching admin data...');
-    fetchAllData();
-  }, [user, userProfile, isAdmin, authLoading, navigate]);
-
-  const fetchAllData = async () => {
+  const verifyAdminAccess = async () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Starting fetchAllData...');
+      console.log('Verifying admin access for user:', user?.id);
 
-      // Test basic connection first
-      console.log('Testing basic database connection...');
-      const { data: testData, error: testError } = await supabase
-        .from('profiles')
-        .select('id')
-        .limit(1);
-
-      if (testError) {
-        console.error('Basic connection test failed:', testError);
-        throw new Error(`Database connection failed: ${testError.message}`);
+      if (!user) {
+        throw new Error('No authenticated user');
       }
 
-      console.log('Basic connection successful, fetching all data...');
+      // First, check if user has a profile
+      console.log('Checking user profile...');
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
-      // Fetch users
+      if (profileError) {
+        console.error('Profile check error:', profileError);
+        throw new Error(`Profile check failed: ${profileError.message}`);
+      }
+
+      console.log('Profile found:', profile);
+
+      // If no profile exists, create admin profile
+      if (!profile) {
+        console.log('No profile found, creating admin profile...');
+        
+        const { error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email || '',
+            full_name: user.email?.split('@')[0] || 'Admin',
+            phone: '',
+            national_id: '',
+            role: 'admin',
+            location: '',
+            approval_status: 'approved'
+          });
+
+        if (createError) {
+          console.error('Failed to create admin profile:', createError);
+          throw new Error(`Failed to create admin profile: ${createError.message}`);
+        }
+
+        console.log('Admin profile created successfully');
+      } else if (profile.role !== 'admin') {
+        console.log('User is not admin, role:', profile.role);
+        throw new Error('Access denied: Admin role required');
+      }
+
+      setIsAdminVerified(true);
+      console.log('Admin access verified, fetching data...');
+      
+      // Now fetch all data
+      await fetchAllData();
+    } catch (error: any) {
+      console.error('Admin verification error:', error);
+      setError(error.message || 'Failed to verify admin access');
+      setIsAdminVerified(false);
+      
+      if (error.message.includes('Access denied')) {
+        navigate('/admin-login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAllData = async () => {
+    try {
+      console.log('Starting fetchAllData...');
+
+      // Fetch all users with simplified query
       console.log('Fetching users...');
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
@@ -102,24 +140,26 @@ const AdminDashboard = () => {
 
       if (usersError) {
         console.error('Error fetching users:', usersError);
-        throw new Error(`Failed to fetch users: ${usersError.message}`);
+        // Don't throw error, just log it and continue
+        setAllUsers([]);
+        setPendingUsers([]);
+      } else {
+        console.log('Users fetched successfully:', usersData?.length || 0);
+        setAllUsers(usersData || []);
+        
+        // Filter pending users
+        const pending = (usersData || []).filter(user => user.approval_status === 'pending');
+        setPendingUsers(pending);
+        console.log('Pending users:', pending.length);
       }
 
-      console.log('Users fetched:', usersData?.length || 0);
-      setAllUsers(usersData || []);
-      
-      // Filter pending users
-      const pending = (usersData || []).filter(user => user.approval_status === 'pending');
-      setPendingUsers(pending);
-      console.log('Pending users:', pending.length);
-
-      // Fetch jobs
+      // Fetch all jobs with simplified query
       console.log('Fetching jobs...');
       const { data: jobsData, error: jobsError } = await supabase
         .from('jobs')
         .select(`
           *,
-          profiles:employer_id (
+          employer:profiles!jobs_employer_id_fkey (
             full_name,
             email
           )
@@ -128,10 +168,10 @@ const AdminDashboard = () => {
 
       if (jobsError) {
         console.error('Error fetching jobs:', jobsError);
-        // Don't throw error for jobs, just log it
+        // Don't throw error, just log it and continue
         setAllJobs([]);
       } else {
-        console.log('Jobs fetched:', jobsData?.length || 0);
+        console.log('Jobs fetched successfully:', jobsData?.length || 0);
         setAllJobs(jobsData || []);
       }
 
@@ -141,14 +181,11 @@ const AdminDashboard = () => {
       console.log('All data fetched successfully');
     } catch (error: any) {
       console.error('Error in fetchAllData:', error);
-      setError(error.message || 'Failed to load dashboard data');
       toast({
-        title: "Error",
-        description: error.message || 'Failed to load dashboard data',
+        title: "Warning",
+        description: "Some data could not be loaded, but you can still use the dashboard",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -247,26 +284,27 @@ const AdminDashboard = () => {
     }
   };
 
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-lg font-medium">Checking admin access...</div>
-        </div>
-      </div>
-    );
-  }
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/admin-login');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
-  // Show loading state while fetching data
-  if (loading) {
+  // Show loading state while checking authentication
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <div className="text-lg font-medium">Loading admin dashboard...</div>
-          <div className="text-sm text-gray-500 mt-2">Fetching users and jobs...</div>
+          <div className="text-lg font-medium">
+            {authLoading ? 'Checking admin access...' : 'Loading admin dashboard...'}
+          </div>
+          <div className="text-sm text-gray-500 mt-2">
+            {authLoading ? 'Verifying credentials...' : 'Fetching users and jobs...'}
+          </div>
         </div>
       </div>
     );
@@ -279,10 +317,17 @@ const AdminDashboard = () => {
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
           <div className="text-lg font-semibold text-gray-900 mb-2">Dashboard Error</div>
           <div className="text-gray-600 mb-4">{error}</div>
-          <Button onClick={fetchAllData} className="inline-flex items-center">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
-          </Button>
+          <div className="space-y-2">
+            <Button onClick={verifyAdminAccess} className="inline-flex items-center">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+            <div>
+              <Button variant="outline" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -313,7 +358,7 @@ const AdminDashboard = () => {
               <Button variant="outline" onClick={() => navigate('/dashboard')}>
                 Main Dashboard
               </Button>
-              <Button variant="outline" onClick={() => navigate('/auth')}>
+              <Button variant="outline" onClick={handleSignOut}>
                 Logout
               </Button>
             </div>

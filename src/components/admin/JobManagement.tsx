@@ -33,7 +33,7 @@ const JobManagement = ({ allJobs, onToggleJobStatus }: JobManagementProps) => {
             {allJobs.map((job) => (
               <TableRow key={job.id}>
                 <TableCell className="font-medium">{job.title}</TableCell>
-                <TableCell>{job.profiles?.full_name || 'Unknown'}</TableCell>
+                <TableCell>{job.employer?.full_name || 'Unknown'}</TableCell>
                 <TableCell>${job.pay_rate} {job.pay_type}</TableCell>
                 <TableCell>
                   <Badge 
