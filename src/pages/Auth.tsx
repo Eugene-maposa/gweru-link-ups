@@ -37,7 +37,11 @@ const Auth = () => {
   // Redirect if already authenticated and approved
   useEffect(() => {
     if (user && userProfile?.approval_status === 'approved') {
-      navigate('/dashboard');
+      if (userProfile?.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [user, userProfile, navigate]);
 
@@ -76,14 +80,7 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
-      // Wait for profile to load, then redirect based on role
-      setTimeout(() => {
-        if (userProfile?.role === 'admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 1000);
+      // Redirect will be handled by useEffect when userProfile loads
     }
     setIsLoading(false);
   };
