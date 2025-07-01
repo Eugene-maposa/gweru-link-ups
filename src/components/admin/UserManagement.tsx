@@ -11,9 +11,10 @@ import { Search, Users } from "lucide-react";
 interface UserManagementProps {
   allUsers: any[];
   onApproval: (userId: string, status: 'approved' | 'rejected') => Promise<void>;
+  onRoleChange: (userId: string, newRole: 'admin' | 'worker' | 'employer') => Promise<void>;
 }
 
-const UserManagement = ({ allUsers, onApproval }: UserManagementProps) => {
+const UserManagement = ({ allUsers, onApproval, onRoleChange }: UserManagementProps) => {
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -159,26 +160,48 @@ const UserManagement = ({ allUsers, onApproval }: UserManagementProps) => {
                 <TableCell>{user.location}</TableCell>
                 <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  {user.approval_status === 'pending' && (
-                    <div className="flex space-x-1">
+                  <div className="flex flex-col space-y-1">
+                    {user.approval_status === 'pending' && (
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onApproval(user.id, 'approved')}
+                          className="text-green-600 hover:bg-green-50"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onApproval(user.id, 'rejected')}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    {user.approval_status === 'approved' && user.role !== 'admin' && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onApproval(user.id, 'approved')}
-                        className="text-green-600 hover:bg-green-50"
+                        onClick={() => onRoleChange(user.id, 'admin')}
+                        className="text-blue-600 hover:bg-blue-50"
                       >
-                        Approve
+                        Make Admin
                       </Button>
+                    )}
+                    {user.role === 'admin' && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onApproval(user.id, 'rejected')}
-                        className="text-red-600 hover:bg-red-50"
+                        onClick={() => onRoleChange(user.id, user.role === 'worker' ? 'employer' : 'worker')}
+                        className="text-orange-600 hover:bg-orange-50"
                       >
-                        Reject
+                        Remove Admin
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

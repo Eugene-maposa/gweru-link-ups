@@ -249,6 +249,40 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'worker' | 'employer') => {
+    try {
+      console.log(`Updating user ${userId} role to ${newRole}`);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          role: newRole,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error updating user role:', error);
+        throw error;
+      }
+
+      toast({
+        title: "Role Updated",
+        description: `User role has been changed to ${newRole}.`,
+      });
+
+      // Refresh data
+      await fetchAllData();
+    } catch (error: any) {
+      console.error('Failed to update user role:', error);
+      toast({
+        title: "Error",
+        description: `Failed to update user role: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
   const toggleJobStatus = async (jobId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'open' ? 'closed' : 'open';
     try {
@@ -402,7 +436,8 @@ const AdminDashboard = () => {
           <TabsContent value="users">
             <UserManagement 
               allUsers={allUsers} 
-              onApproval={handleApproval} 
+              onApproval={handleApproval}
+              onRoleChange={handleRoleChange}
             />
           </TabsContent>
 

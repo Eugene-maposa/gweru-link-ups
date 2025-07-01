@@ -23,12 +23,6 @@ const Index = () => {
               <Link to="/auth">
                 <Button>Get Started</Button>
               </Link>
-              <Link to="/admin-login">
-                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                  <ShieldCheck className="h-4 w-4 mr-2" />
-                  Admin
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
