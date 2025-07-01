@@ -76,7 +76,14 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
-      navigate('/dashboard');
+      // Wait for profile to load, then redirect based on role
+      setTimeout(() => {
+        if (userProfile?.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
+      }, 1000);
     }
     setIsLoading(false);
   };
@@ -211,11 +218,6 @@ const Auth = () => {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
-                <div className="text-center">
-                  <Button variant="link" onClick={() => navigate('/admin-login')} className="text-sm">
-                    Admin Login
-                  </Button>
-                </div>
               </form>
             </TabsContent>
             
