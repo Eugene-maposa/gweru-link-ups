@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-
 import Dashboard from "./pages/Dashboard";
 import PostJob from "./pages/PostJob";
 import Messages from "./pages/Messages";
@@ -17,6 +16,7 @@ import JobDetails from "./pages/JobDetails";
 import HireWorkers from "./pages/HireWorkers";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -31,14 +31,46 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/post-job" element={<PostJob />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/find-work" element={<FindWork />} />
-            <Route path="/job/:id" element={<JobDetails />} />
-            <Route path="/hire-workers" element={<HireWorkers />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute requireApproval>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/post-job" element={
+              <ProtectedRoute requireApproval>
+                <PostJob />
+              </ProtectedRoute>
+            } />
+            <Route path="/messages" element={
+              <ProtectedRoute requireApproval>
+                <Messages />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute requireApproval>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/find-work" element={
+              <ProtectedRoute requireApproval>
+                <FindWork />
+              </ProtectedRoute>
+            } />
+            <Route path="/job/:id" element={
+              <ProtectedRoute requireApproval>
+                <JobDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/hire-workers" element={
+              <ProtectedRoute requireApproval>
+                <HireWorkers />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
