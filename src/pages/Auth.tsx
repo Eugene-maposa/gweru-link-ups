@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,14 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
-import { useEffect } from "react";
+import { AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState("signin");
   const [signUpData, setSignUpData] = useState({
     fullName: '',
     email: '',
@@ -47,20 +49,31 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setSuccessMessage('');
     
-    if (!signInData.email || !signInData.password) {
+    if (!signInData.email.trim() || !signInData.password) {
       toast({
         title: "Missing information",
         description: "Please fill in all fields",
         variant: "destructive"
       });
-      setIsLoading(false);
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(signInData.email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address",
+        variant: "destructive"
+      });
       return;
     }
     
-    const { error } = await signIn(signInData.email, signInData.password);
+    setIsLoading(true);
+    setSuccessMessage('');
+    
+    const { error } = await signIn(signInData.email.trim(), signInData.password);
     
     if (error) {
       let errorMessage = error.message;
@@ -68,6 +81,8 @@ const Auth = () => {
         errorMessage = "Please check your email and click the confirmation link before signing in.";
       } else if (error.message.includes('Invalid login credentials')) {
         errorMessage = "Invalid email or password. Please check your credentials.";
+      } else if (error.message.includes('Too many requests')) {
+        errorMessage = "Too many login attempts. Please wait a moment before trying again.";
       }
       
       toast({
@@ -80,53 +95,92 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
-      // Redirect will be handled by useEffect when userProfile loads
+      // Clear form on success
+      setSignInData({ email: '', password: '' });
     }
     setIsLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setSuccessMessage('');
     
-    // Validate all fields are filled
-    if (!signUpData.fullName || !signUpData.email || !signUpData.phone || 
-        !signUpData.nationalId || !signUpData.role || !signUpData.location || 
-        !signUpData.password) {
+    // Validate all fields are filled and trimmed
+    const trimmedData = {
+      fullName: signUpData.fullName.trim(),
+      email: signUpData.email.trim(),
+      phone: signUpData.phone.trim(),
+      nationalId: signUpData.nationalId.trim(),
+      role: signUpData.role,
+      location: signUpData.location,
+      password: signUpData.password
+    };
+    
+    if (!trimmedData.fullName || !trimmedData.email || !trimmedData.phone || 
+        !trimmedData.nationalId || !trimmedData.role || !trimmedData.location || 
+        !trimmedData.password) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
         variant: "destructive"
       });
-      setIsLoading(false);
       return;
     }
-    
-    // Validate password strength
-    if (signUpData.password.length < 6) {
+
+    // Validate full name (at least 2 characters)
+    if (trimmedData.fullName.length < 2) {
       toast({
-        title: "Password too short",
-        description: "Password must be at least 6 characters long",
+        title: "Invalid name",
+        description: "Full name must be at least 2 characters long",
         variant: "destructive"
       });
-      setIsLoading(false);
       return;
     }
     
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(signUpData.email)) {
+    if (!emailRegex.test(trimmedData.email)) {
       toast({
         title: "Invalid email",
         description: "Please enter a valid email address",
         variant: "destructive"
       });
-      setIsLoading(false);
+      return;
+    }
+
+    // Validate phone number (basic validation)
+    if (trimmedData.phone.length < 10) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid phone number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate National ID format (basic validation)
+    if (trimmedData.nationalId.length < 8) {
+      toast({
+        title: "Invalid National ID",
+        description: "Please enter a valid National ID",
+        variant: "destructive"
+      });
       return;
     }
     
-    const { error } = await signUp(signUpData.email, signUpData.password, signUpData);
+    // Validate password strength
+    if (trimmedData.password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    setSuccessMessage('');
+    
+    const { error } = await signUp(trimmedData.email, trimmedData.password, trimmedData);
     
     if (error) {
       let errorMessage = error.message;
@@ -136,6 +190,8 @@ const Auth = () => {
         errorMessage = "This National ID is already registered. Please check your ID number.";
       } else if (error.message.includes('duplicate key value')) {
         errorMessage = "This email or National ID is already registered. Please use different credentials.";
+      } else if (error.message.includes('Password should be at least 6 characters')) {
+        errorMessage = "Password must be at least 6 characters long.";
       }
       
       toast({
@@ -155,8 +211,9 @@ const Auth = () => {
         password: ''
       });
       
-      // Show success for a few seconds then suggest sign in
+      // Switch to sign in tab after successful signup
       setTimeout(() => {
+        setActiveTab("signin");
         toast({
           title: "Next steps",
           description: "You can now sign in after confirming your email address.",
@@ -183,7 +240,7 @@ const Auth = () => {
             </Alert>
           )}
           
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -204,13 +261,28 @@ const Auth = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signin-password">Password</Label>
-                  <Input 
-                    id="signin-password" 
-                    type="password" 
-                    value={signInData.password}
-                    onChange={(e) => setSignInData({...signInData, password: e.target.value})}
-                    required 
-                  />
+                  <div className="relative">
+                    <Input 
+                      id="signin-password" 
+                      type={showPassword ? "text" : "password"}
+                      value={signInData.password}
+                      onChange={(e) => setSignInData({...signInData, password: e.target.value})}
+                      required 
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Signing in..." : "Sign In"}
@@ -301,14 +373,29 @@ const Auth = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password * (min 6 characters)</Label>
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    value={signUpData.password}
-                    onChange={(e) => setSignUpData({...signUpData, password: e.target.value})}
-                    required 
-                    minLength={6}
-                  />
+                  <div className="relative">
+                    <Input 
+                      id="password" 
+                      type={showSignUpPassword ? "text" : "password"}
+                      value={signUpData.password}
+                      onChange={(e) => setSignUpData({...signUpData, password: e.target.value})}
+                      required 
+                      minLength={6}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                    >
+                      {showSignUpPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Creating account..." : "Create Account"}
