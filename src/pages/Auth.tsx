@@ -15,6 +15,7 @@ import { AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isVerified, setIsVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("signin");
@@ -35,6 +36,16 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signUp, signIn, user, userProfile } = useAuth();
+
+  // Check for email verification
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('verified') === 'true') {
+      setIsVerified(true);
+      setSuccessMessage('Email verified successfully! You can now sign in.');
+      setActiveTab('signin');
+    }
+  }, []);
 
   // Redirect if already authenticated and approved
   useEffect(() => {
@@ -200,7 +211,7 @@ const Auth = () => {
         variant: "destructive"
       });
     } else {
-      setSuccessMessage("Account created successfully! Please check your email for a confirmation link, then wait for admin approval.");
+      setSuccessMessage("Account created successfully! Please check your email for a confirmation link. After confirming your email, wait for admin approval before signing in.");
       setSignUpData({
         fullName: '',
         email: '',
@@ -211,14 +222,10 @@ const Auth = () => {
         password: ''
       });
       
-      // Switch to sign in tab after successful signup
-      setTimeout(() => {
-        setActiveTab("signin");
-        toast({
-          title: "Next steps",
-          description: "You can now sign in after confirming your email address.",
-        });
-      }, 3000);
+      toast({
+        title: "Registration successful!",
+        description: "Please check your email and click the confirmation link.",
+      });
     }
     setIsLoading(false);
   };
