@@ -47,8 +47,8 @@ const AdminDashboard = () => {
 
     // Redirect if not authenticated
     if (!user) {
-      console.log('No user found, redirecting to admin login');
-      navigate('/admin-login');
+      console.log('No user found, redirecting to auth');
+      navigate('/auth');
       return;
     }
 
@@ -120,7 +120,7 @@ const AdminDashboard = () => {
       setIsAdminVerified(false);
       
       if (error.message.includes('Access denied')) {
-        navigate('/admin-login');
+        navigate('/auth');
       }
     } finally {
       setLoading(false);
@@ -321,7 +321,7 @@ const AdminDashboard = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/admin-login');
+      navigate('/');
     } catch (error) {
       console.error('Sign out error:', error);
     }
