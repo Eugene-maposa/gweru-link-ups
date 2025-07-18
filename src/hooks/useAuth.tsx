@@ -106,6 +106,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth?verified=true`,
+          data: {
+            full_name: userData.fullName,
+            phone: userData.phone,
+            national_id: userData.nationalId,
+            role: userData.role,
+            location: userData.location
+          }
         }
       });
 
@@ -137,9 +144,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (profileError) {
           console.error('Profile creation error:', profileError);
-          // Don't fail signup completely for profile creation issues
+          setLoading(false);
+          return { error: profileError };
         } else {
           console.log('Profile created successfully');
+          
+          // Notify admin about new registration
+          try {
+            const { error: notifyError } = await supabase.functions.invoke('notify-admin-registration', {
+              body: {
+                userId: authData.user.id,
+                userEmail: email,
+                fullName: userData.fullName,
+                role: userData.role,
+                nationalId: userData.nationalId,
+                phone: userData.phone,
+                location: userData.location
+              }
+            });
+            
+            if (notifyError) {
+              console.error('Admin notification error:', notifyError);
+            } else {
+              console.log('Admin notification sent successfully');
+            }
+          } catch (notifyError) {
+            console.error('Failed to notify admin:', notifyError);
+          }
         }
       }
 
