@@ -2,19 +2,35 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw } from "lucide-react";
 
 interface PendingApprovalsProps {
   pendingUsers: any[];
   onApproval: (userId: string, status: 'approved' | 'rejected') => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
-const PendingApprovals = ({ pendingUsers, onApproval }: PendingApprovalsProps) => {
+const PendingApprovals = ({ pendingUsers, onApproval, onRefresh, isRefreshing }: PendingApprovalsProps) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Pending User Approvals</h3>
-        <Badge variant="outline">{pendingUsers.length} Pending</Badge>
+        <div className="flex items-center space-x-2">
+          <Badge variant="outline">{pendingUsers.length} Pending</Badge>
+          {onRefresh && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="space-y-4">

@@ -1,11 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import PendingApprovals from "@/components/admin/PendingApprovals";
@@ -28,8 +30,11 @@ const AdminDashboard = () => {
     completedJobs: 0
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdminVerified, setIsAdminVerified] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -127,8 +132,10 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchAllData = async () => {
+  // Enhanced fetch function with refresh state management
+  const fetchAllData = useCallback(async (showToast = false) => {
     try {
+      setRefreshing(true);
       console.log('Starting fetchAllData...');
 
       // Fetch all users with simplified query
@@ -177,8 +184,16 @@ const AdminDashboard = () => {
 
       // Calculate stats
       calculateStats(usersData || [], jobsData || []);
+      setLastRefresh(new Date());
 
       console.log('All data fetched successfully');
+      
+      if (showToast) {
+        toast({
+          title: "Data Refreshed",
+          description: "All dashboard data has been updated successfully.",
+        });
+      }
     } catch (error: any) {
       console.error('Error in fetchAllData:', error);
       toast({
@@ -186,8 +201,27 @@ const AdminDashboard = () => {
         description: "Some data could not be loaded, but you can still use the dashboard",
         variant: "destructive"
       });
+    } finally {
+      setRefreshing(false);
     }
-  };
+  }, [toast]);
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!autoRefresh || !isAdminVerified) return;
+
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing dashboard data...');
+      fetchAllData();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, isAdminVerified, fetchAllData]);
+
+  // Manual refresh handler
+  const handleManualRefresh = useCallback(async () => {
+    await fetchAllData(true);
+  }, [fetchAllData]);
 
   const calculateStats = (users: any[], jobs: any[]) => {
     console.log('Calculating stats with users:', users.length, 'jobs:', jobs.length);
@@ -375,15 +409,40 @@ const AdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={fetchAllData}
-                className="inline-flex items-center"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
+              
+              {/* Refresh Controls */}
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={refreshing}
+                  className="inline-flex items-center"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                </Button>
+                
+                {/* Auto-refresh toggle */}
+                <div className="flex items-center space-x-2 bg-white border rounded-lg px-3 py-2">
+                  <Switch
+                    id="auto-refresh"
+                    checked={autoRefresh}
+                    onCheckedChange={setAutoRefresh}
+                  />
+                  <Label htmlFor="auto-refresh" className="text-sm text-gray-600">
+                    Auto-refresh (30s)
+                  </Label>
+                </div>
+              </div>
+
+              {/* Last refresh indicator */}
+              {lastRefresh && (
+                <div className="flex items-center space-x-1 text-xs text-gray-500">
+                  <Clock className="h-3 w-3" />
+                  <span>Last updated: {lastRefresh.toLocaleTimeString()}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
@@ -430,6 +489,8 @@ const AdminDashboard = () => {
             <PendingApprovals 
               pendingUsers={pendingUsers} 
               onApproval={handleApproval} 
+              onRefresh={handleManualRefresh}
+              isRefreshing={refreshing}
             />
           </TabsContent>
           
@@ -438,6 +499,8 @@ const AdminDashboard = () => {
               allUsers={allUsers} 
               onApproval={handleApproval}
               onRoleChange={handleRoleChange}
+              onRefresh={handleManualRefresh}
+              isRefreshing={refreshing}
             />
           </TabsContent>
 
@@ -445,6 +508,8 @@ const AdminDashboard = () => {
             <JobManagement 
               allJobs={allJobs} 
               onToggleJobStatus={toggleJobStatus} 
+              onRefresh={handleManualRefresh}
+              isRefreshing={refreshing}
             />
           </TabsContent>
 

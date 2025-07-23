@@ -3,19 +3,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Briefcase } from "lucide-react";
+import { Briefcase, RefreshCw } from "lucide-react";
 
 interface JobManagementProps {
   allJobs: any[];
   onToggleJobStatus: (jobId: string, currentStatus: string) => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
-const JobManagement = ({ allJobs, onToggleJobStatus }: JobManagementProps) => {
+const JobManagement = ({ allJobs, onToggleJobStatus, onRefresh, isRefreshing }: JobManagementProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Jobs</CardTitle>
-        <CardDescription>Monitor and manage job postings</CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>All Jobs</CardTitle>
+            <CardDescription>Monitor and manage job postings</CardDescription>
+          </div>
+          {onRefresh && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <Table>

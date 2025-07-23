@@ -6,15 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Search, Users } from "lucide-react";
+import { Search, Users, RefreshCw } from "lucide-react";
 
 interface UserManagementProps {
   allUsers: any[];
   onApproval: (userId: string, status: 'approved' | 'rejected') => Promise<void>;
   onRoleChange: (userId: string, newRole: 'admin' | 'worker' | 'employer') => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
 }
 
-const UserManagement = ({ allUsers, onApproval, onRoleChange }: UserManagementProps) => {
+const UserManagement = ({ allUsers, onApproval, onRoleChange, onRefresh, isRefreshing }: UserManagementProps) => {
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -73,8 +75,24 @@ const UserManagement = ({ allUsers, onApproval, onRoleChange }: UserManagementPr
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Users</CardTitle>
-        <CardDescription>Manage all registered users with advanced filtering and sorting</CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>All Users</CardTitle>
+            <CardDescription>Manage all registered users with advanced filtering and sorting</CardDescription>
+          </div>
+          {onRefresh && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          )}
+        </div>
         
         {/* Filters and Search */}
         <div className="flex flex-wrap gap-4 items-center">
