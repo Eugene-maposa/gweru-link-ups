@@ -102,6 +102,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Starting signup process for:', email);
       setLoading(true);
       
+      // First check if user exists in our profiles table
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (existingProfile) {
+        console.log('User profile exists in database');
+        setLoading(false);
+        return { error: { message: 'User already registered' } };
+      }
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -118,6 +131,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (authError) {
+        // If user exists in auth but not in profiles, allow them to sign up
+        if (authError.message === 'User already registered') {
+          console.log('User exists in auth but not in profiles, proceeding with profile creation');
+          
+          // Try to sign in the user to get their ID
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
+          
+          if (signInError || !signInData.user) {
+            console.error('Could not sign in existing user:', signInError);
+            setLoading(false);
+            return { error: { message: 'Unable to complete registration. Please try signing in instead.' } };
+          }
+          
+          // Create profile for existing auth user
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: signInData.user.id,
+              email: email,
+              full_name: userData.fullName,
+              phone: userData.phone,
+              national_id: userData.nationalId,
+              role: userData.role,
+              location: userData.location,
+              approval_status: 'pending'
+            });
+
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+            setLoading(false);
+            return { error: profileError };
+          }
+          
+          setLoading(false);
+          return { error: null };
+        }
+        
         console.error('Auth signup error:', authError);
         setLoading(false);
         return { error: authError };
