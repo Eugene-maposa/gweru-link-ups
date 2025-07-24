@@ -2,8 +2,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +31,6 @@ const AdminDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdminVerified, setIsAdminVerified] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -206,17 +203,6 @@ const AdminDashboard = () => {
     }
   }, [toast]);
 
-  // Auto-refresh functionality
-  useEffect(() => {
-    if (!autoRefresh || !isAdminVerified) return;
-
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing dashboard data...');
-      fetchAllData();
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, isAdminVerified, fetchAllData]);
 
   // Manual refresh handler
   const handleManualRefresh = useCallback(async () => {
@@ -422,18 +408,6 @@ const AdminDashboard = () => {
                   <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                   {refreshing ? 'Refreshing...' : 'Refresh'}
                 </Button>
-                
-                {/* Auto-refresh toggle */}
-                <div className="flex items-center space-x-2 bg-white border rounded-lg px-3 py-2">
-                  <Switch
-                    id="auto-refresh"
-                    checked={autoRefresh}
-                    onCheckedChange={setAutoRefresh}
-                  />
-                  <Label htmlFor="auto-refresh" className="text-sm text-gray-600">
-                    Auto-refresh (30s)
-                  </Label>
-                </div>
               </div>
 
               {/* Last refresh indicator */}
