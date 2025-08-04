@@ -53,13 +53,18 @@ const Auth = () => {
     }
   }, []);
 
-  // Redirect if already authenticated and approved
+  // Redirect if already authenticated
   useEffect(() => {
-    if (user && userProfile?.approval_status === 'approved') {
-      if (userProfile?.role === 'admin') {
-        navigate('/admin');
+    if (user && userProfile) {
+      if (userProfile.approval_status === 'approved') {
+        if (userProfile.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
-        navigate('/dashboard');
+        // Redirect to approval status page for pending/rejected users
+        navigate('/');
       }
     }
   }, [user, userProfile, navigate]);

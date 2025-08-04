@@ -4,8 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Users, Briefcase, MapPin, Star, ArrowRight, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import ApprovalStatus from "@/components/ApprovalStatus";
 
 const Index = () => {
+  const { user, userProfile } = useAuth();
+
+  // Show approval status if user is logged in but not approved
+  if (user && userProfile && userProfile.approval_status !== 'approved') {
+    return <ApprovalStatus />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
       {/* Navigation */}
