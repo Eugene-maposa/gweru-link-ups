@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('Starting signup process for:', email);
       setLoading(true);
       
-      // First check if user exists in our profiles table
+      // Check if user already has a profile in our database
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
@@ -110,11 +110,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
       
       if (existingProfile) {
-        console.log('User profile exists in database');
+        console.log('User profile already exists in database');
         setLoading(false);
-        return { error: { message: 'User already registered' } };
+        return { error: { message: 'User already registered. Please try signing in instead.' } };
       }
       
+      // Attempt to create new user - the database trigger will handle profile creation
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -131,100 +132,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (authError) {
-        // If user exists in auth but not in profiles, allow them to sign up
-        if (authError.message === 'User already registered') {
-          console.log('User exists in auth but not in profiles, proceeding with profile creation');
-          
-          // Try to sign in the user to get their ID
-          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password
-          });
-          
-          if (signInError || !signInData.user) {
-            console.error('Could not sign in existing user:', signInError);
-            setLoading(false);
-            return { error: { message: 'Unable to complete registration. Please try signing in instead.' } };
-          }
-          
-          // Create profile for existing auth user
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: signInData.user.id,
-              email: email,
-              full_name: userData.fullName,
-              phone: userData.phone,
-              national_id: userData.nationalId,
-              role: userData.role,
-              location: userData.location,
-              approval_status: 'pending'
-            });
-
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-            setLoading(false);
-            return { error: profileError };
-          }
-          
-          setLoading(false);
-          return { error: null };
-        }
-        
         console.error('Auth signup error:', authError);
         setLoading(false);
         return { error: authError };
       }
 
       if (authData.user) {
-        console.log('User created, creating profile:', authData.user.id);
+        console.log('User created successfully:', authData.user.id);
         
-        // Wait a moment for the user to be fully created
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            email: email,
-            full_name: userData.fullName,
-            phone: userData.phone,
-            national_id: userData.nationalId,
-            role: userData.role,
-            location: userData.location,
-            approval_status: 'pending'
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          setLoading(false);
-          return { error: profileError };
-        } else {
-          console.log('Profile created successfully');
-          
-          // Notify admin about new registration
-          try {
-            const { error: notifyError } = await supabase.functions.invoke('notify-admin-registration', {
-              body: {
-                userId: authData.user.id,
-                userEmail: email,
-                fullName: userData.fullName,
-                role: userData.role,
-                nationalId: userData.nationalId,
-                phone: userData.phone,
-                location: userData.location
-              }
-            });
-            
-            if (notifyError) {
-              console.error('Admin notification error:', notifyError);
-            } else {
-              console.log('Admin notification sent successfully');
+        // Notify admin about new registration
+        try {
+          const { error: notifyError } = await supabase.functions.invoke('notify-admin-registration', {
+            body: {
+              userId: authData.user.id,
+              userEmail: email,
+              fullName: userData.fullName,
+              role: userData.role,
+              nationalId: userData.nationalId,
+              phone: userData.phone,
+              location: userData.location
             }
-          } catch (notifyError) {
-            console.error('Failed to notify admin:', notifyError);
+          });
+          
+          if (notifyError) {
+            console.error('Admin notification error:', notifyError);
+          } else {
+            console.log('Admin notification sent successfully');
           }
+        } catch (notifyError) {
+          console.error('Failed to notify admin:', notifyError);
         }
       }
 
