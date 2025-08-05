@@ -6,12 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MapPin, Clock, Star, DollarSign, Calendar, User, Building, Phone, MessageSquare, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMessages } from "@/hooks/useMessages";
+import { useAuth } from "@/hooks/useAuth";
 
 const JobDetails = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { createConversation } = useMessages();
   const [isApplying, setIsApplying] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
   // Mock job data - in a real app, this would come from an API
   const job = {
@@ -94,6 +99,41 @@ What We Offer:
     window.open(`mailto:${job.contactInfo.email}`);
   };
 
+  const handleMessageEmployer = async () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to message the employer.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingConversation(true);
+    try {
+      // For demo purposes, using mock employer ID
+      // In real app, this would come from the job data
+      const mockEmployerId = "employer-123";
+      
+      await createConversation(id || "1", user.id, mockEmployerId);
+      
+      toast({
+        title: "Conversation Started",
+        description: "You can now message the employer about this job.",
+      });
+      
+      navigate('/messages');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to start conversation. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingConversation(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -149,22 +189,33 @@ What We Offer:
           
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   size="lg" 
                   onClick={handleApply}
                   disabled={isApplying}
-                  className="w-full md:w-auto mb-2 md:mb-0"
+                  className="flex-1 md:flex-none"
                 >
                   {isApplying ? "Applying..." : "Apply Now"}
                 </Button>
                 <Button 
                   variant="outline" 
                   size="lg"
-                  onClick={handleContactEmployer}
-                  className="w-full md:w-auto"
+                  onClick={handleMessageEmployer}
+                  disabled={isCreatingConversation}
+                  className="flex-1 md:flex-none"
                 >
-                  Contact Employer
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  {isCreatingConversation ? "Starting..." : "Message Employer"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg"
+                  onClick={handleContactEmployer}
+                  className="flex-1 md:flex-none"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call
                 </Button>
               </div>
             </div>
