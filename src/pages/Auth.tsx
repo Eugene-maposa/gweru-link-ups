@@ -10,7 +10,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, CheckCircle, Eye, EyeOff, Upload, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +31,9 @@ const Auth = () => {
     location: '',
     password: ''
   });
+  const [nationalIdFile, setNationalIdFile] = useState<File | null>(null);
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [signInData, setSignInData] = useState({
     email: '',
     password: ''
@@ -188,6 +192,16 @@ const Auth = () => {
       });
       return;
     }
+
+    // Validate National ID file upload (required)
+    if (!nationalIdFile) {
+      toast({
+        title: "National ID file required",
+        description: "Please upload your National ID document",
+        variant: "destructive"
+      });
+      return;
+    }
     
     // Validate password strength
     if (trimmedData.password.length < 6) {
@@ -200,19 +214,22 @@ const Auth = () => {
     }
     
     setIsLoading(true);
+    setUploadingFiles(true);
     setSuccessMessage('');
     
-    const { error } = await signUp(trimmedData.email, trimmedData.password, trimmedData);
+    const { error, data } = await signUp(trimmedData.email, trimmedData.password, trimmedData);
     
-    if (error) {
-      let errorMessage = error.message;
-      if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+    if (error || !data?.user) {
+      setIsLoading(false);
+      setUploadingFiles(false);
+      let errorMessage = error?.message || "Signup failed";
+      if (error?.message.includes('already registered') || error?.message.includes('User already registered')) {
         errorMessage = "An account with this email already exists. Please sign in instead.";
-      } else if (error.message.includes('national_id')) {
+      } else if (error?.message.includes('national_id')) {
         errorMessage = "This National ID is already registered. Please check your ID number.";
-      } else if (error.message.includes('duplicate key value')) {
+      } else if (error?.message.includes('duplicate key value')) {
         errorMessage = "This email or National ID is already registered. Please use different credentials.";
-      } else if (error.message.includes('Password should be at least 6 characters')) {
+      } else if (error?.message.includes('Password should be at least 6 characters')) {
         errorMessage = "Password must be at least 6 characters long.";
       }
       
@@ -221,24 +238,135 @@ const Auth = () => {
         description: errorMessage,
         variant: "destructive"
       });
-    } else {
-      setSuccessMessage("Account created successfully! Please check your email for a confirmation link. After confirming your email, wait for admin approval before signing in.");
-      setSignUpData({
-        fullName: '',
-        email: '',
-        phone: '',
-        nationalId: '',
-        role: '',
-        location: '',
-        password: ''
-      });
-      
+      return;
+    }
+
+    // Upload files after successful user creation
+    const userId = data.user.id;
+    let nationalIdUrl = null;
+    let profilePictureUrl = null;
+
+    try {
+      // Upload National ID file
+      nationalIdUrl = await handleFileUpload(nationalIdFile, 'national-ids', userId);
+      if (!nationalIdUrl) {
+        throw new Error('Failed to upload National ID');
+      }
+
+      // Upload profile picture if provided
+      if (profilePicture) {
+        profilePictureUrl = await handleFileUpload(profilePicture, 'profile-pictures', userId);
+      }
+
+      // Update user profile with file URLs
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          national_id_file_url: nationalIdUrl,
+          profile_picture_url: profilePictureUrl
+        })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('Error updating profile with file URLs:', updateError);
+        toast({
+          title: "File upload warning",
+          description: "Account created but file upload failed. Please contact support.",
+          variant: "destructive"
+        });
+      }
+    } catch (uploadError) {
+      console.error('Upload error:', uploadError);
       toast({
-        title: "Registration successful!",
-        description: "Please check your email and click the confirmation link.",
+        title: "File upload failed",
+        description: "Account created but file upload failed. Please contact support.",
+        variant: "destructive"
       });
     }
+
+    setSuccessMessage("Account created successfully! Please check your email for a confirmation link. After confirming your email, wait for admin approval before signing in.");
+    setSignUpData({
+      fullName: '',
+      email: '',
+      phone: '',
+      nationalId: '',
+      role: '',
+      location: '',
+      password: ''
+    });
+    setNationalIdFile(null);
+    setProfilePicture(null);
+    
+    toast({
+      title: "Registration successful!",
+      description: "Please check your email and click the confirmation link.",
+    });
+    
     setIsLoading(false);
+    setUploadingFiles(false);
+  };
+
+  const handleFileUpload = async (file: File, bucket: string, userId: string): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return null;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  const handleNationalIdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: "National ID file must be under 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!file.type.match(/^image\/(jpeg|jpg|png|pdf)$/)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image (JPEG, PNG) or PDF file",
+          variant: "destructive"
+        });
+        return;
+      }
+      setNationalIdFile(file);
+    }
+  };
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({
+          title: "File too large",
+          description: "Profile picture must be under 2MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!file.type.match(/^image\/(jpeg|jpg|png)$/)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image (JPEG, PNG)",
+          variant: "destructive"
+        });
+        return;
+      }
+      setProfilePicture(file);
+    }
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -440,16 +568,100 @@ const Auth = () => {
                     required 
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="nationalId">National ID *</Label>
-                  <Input 
-                    id="nationalId" 
-                    placeholder="63-123456-A-12" 
-                    value={signUpData.nationalId}
-                    onChange={(e) => setSignUpData({...signUpData, nationalId: e.target.value})}
-                    required 
-                  />
-                </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="nationalId">National ID *</Label>
+                   <Input 
+                     id="nationalId" 
+                     placeholder="63-123456-A-12" 
+                     value={signUpData.nationalId}
+                     onChange={(e) => setSignUpData({...signUpData, nationalId: e.target.value})}
+                     required 
+                   />
+                 </div>
+                 
+                 {/* National ID File Upload */}
+                 <div className="space-y-2">
+                   <Label htmlFor="nationalIdFile">National ID Document * (Image or PDF)</Label>
+                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                     {nationalIdFile ? (
+                       <div className="flex items-center justify-between">
+                         <div className="flex items-center space-x-2">
+                           <Upload className="h-4 w-4 text-green-600" />
+                           <span className="text-sm text-green-600">{nationalIdFile.name}</span>
+                         </div>
+                         <Button
+                           type="button"
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => setNationalIdFile(null)}
+                         >
+                           <X className="h-4 w-4" />
+                         </Button>
+                       </div>
+                     ) : (
+                       <div className="text-center">
+                         <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                         <div className="mt-2">
+                           <label htmlFor="nationalIdFile" className="cursor-pointer">
+                             <span className="text-sm text-blue-600 hover:text-blue-500">
+                               Click to upload National ID
+                             </span>
+                             <Input 
+                               id="nationalIdFile"
+                               type="file"
+                               accept="image/*,.pdf"
+                               onChange={handleNationalIdFileChange}
+                               className="hidden"
+                             />
+                           </label>
+                         </div>
+                         <p className="text-xs text-gray-500 mt-1">PNG, JPG, PDF up to 5MB</p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
+
+                 {/* Profile Picture Upload */}
+                 <div className="space-y-2">
+                   <Label htmlFor="profilePicture">Profile Picture (Optional)</Label>
+                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                     {profilePicture ? (
+                       <div className="flex items-center justify-between">
+                         <div className="flex items-center space-x-2">
+                           <Upload className="h-4 w-4 text-green-600" />
+                           <span className="text-sm text-green-600">{profilePicture.name}</span>
+                         </div>
+                         <Button
+                           type="button"
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => setProfilePicture(null)}
+                         >
+                           <X className="h-4 w-4" />
+                         </Button>
+                       </div>
+                     ) : (
+                       <div className="text-center">
+                         <Upload className="mx-auto h-8 w-8 text-gray-400" />
+                         <div className="mt-2">
+                           <label htmlFor="profilePicture" className="cursor-pointer">
+                             <span className="text-sm text-blue-600 hover:text-blue-500">
+                               Click to upload profile picture
+                             </span>
+                             <Input 
+                               id="profilePicture"
+                               type="file"
+                               accept="image/*"
+                               onChange={handleProfilePictureChange}
+                               className="hidden"
+                             />
+                           </label>
+                         </div>
+                         <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 2MB</p>
+                       </div>
+                     )}
+                   </div>
+                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="userType">I am a... *</Label>
                   <Select value={signUpData.role} onValueChange={(value) => setSignUpData({...signUpData, role: value})} required>
@@ -506,9 +718,9 @@ const Auth = () => {
                     </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating account..." : "Create Account"}
-                </Button>
+                 <Button type="submit" className="w-full" disabled={isLoading || uploadingFiles}>
+                   {uploadingFiles ? "Uploading files..." : isLoading ? "Creating account..." : "Create Account"}
+                 </Button>
               </form>
             </TabsContent>
           </Tabs>

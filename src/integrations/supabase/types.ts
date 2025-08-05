@@ -241,7 +241,9 @@ export type Database = {
           id: string
           location: string
           national_id: string
+          national_id_file_url: string | null
           phone: string
+          profile_picture_url: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
         }
@@ -253,7 +255,9 @@ export type Database = {
           id: string
           location: string
           national_id: string
+          national_id_file_url?: string | null
           phone: string
+          profile_picture_url?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
@@ -265,7 +269,9 @@ export type Database = {
           id?: string
           location?: string
           national_id?: string
+          national_id_file_url?: string | null
           phone?: string
+          profile_picture_url?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
         }
