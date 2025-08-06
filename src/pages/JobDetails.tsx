@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { ArrowLeft, MapPin, Clock, Star, DollarSign, Calendar, User, Building, P
 import { useToast } from "@/hooks/use-toast";
 import { useMessages } from "@/hooks/useMessages";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const JobDetails = () => {
   const navigate = useNavigate();
@@ -17,9 +18,44 @@ const JobDetails = () => {
   const { createConversation } = useMessages();
   const [isApplying, setIsApplying] = useState(false);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [job, setJob] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock job data - in a real app, this would come from an API
-  const job = {
+  // Fetch job data from database
+  useEffect(() => {
+    const fetchJob = async () => {
+      if (!id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('jobs')
+          .select(`
+            *,
+            employer:profiles!jobs_employer_id_fkey(full_name, phone)
+          `)
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        
+        setJob(data);
+      } catch (error) {
+        console.error('Error fetching job:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load job details",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJob();
+  }, [id, toast]);
+
+  // Mock contact info fallback for demo
+  const mockJob = {
     id: parseInt(id || "1"),
     title: "Construction Helper Needed",
     employer: "ABC Construction",
@@ -86,17 +122,17 @@ What We Offer:
 
   const handleContactEmployer = () => {
     // Open phone dialer
-    window.open(`tel:${job.contactInfo.phone}`);
+    window.open(`tel:${displayJob.contactInfo.phone}`);
   };
 
   const handleContactWhatsapp = () => {
     // Open WhatsApp with the number
-    window.open(`https://wa.me/${job.contactInfo.whatsapp.replace(/\s+/g, '')}`);
+    window.open(`https://wa.me/${displayJob.contactInfo.whatsapp.replace(/\s+/g, '')}`);
   };
 
   const handleContactEmail = () => {
     // Open email client
-    window.open(`mailto:${job.contactInfo.email}`);
+    window.open(`mailto:${displayJob.contactInfo.email}`);
   };
 
   const handleMessageEmployer = async () => {
@@ -109,13 +145,18 @@ What We Offer:
       return;
     }
 
+    if (!job?.employer_id) {
+      toast({
+        title: "Error",
+        description: "Unable to find employer information.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreatingConversation(true);
     try {
-      // For demo purposes, using mock employer ID
-      // In real app, this would come from the job data
-      const mockEmployerId = "employer-123";
-      
-      await createConversation(id || "1", user.id, mockEmployerId);
+      await createConversation(job.id, user.id, job.employer_id);
       
       toast({
         title: "Conversation Started",
@@ -131,6 +172,43 @@ What We Offer:
       });
     } finally {
       setIsCreatingConversation(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div>Loading job details...</div>
+      </div>
+    );
+  }
+
+  if (!job) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div>Job not found</div>
+      </div>
+    );
+  }
+
+  // Use real job data with fallbacks for display
+  const displayJob = {
+    ...job,
+    employer: job.employer?.full_name || 'Unknown Employer',
+    location: job.location || 'Location not specified',
+    distance: '0.5 km', // This would need to be calculated based on user location
+    pay: `$${job.pay_rate}/${job.pay_type}`,
+    duration: job.duration || 'Duration not specified',
+    rating: 4.8, // This would come from employer ratings in a real app
+    posted: new Date(job.created_at).toLocaleDateString(),
+    category: 'Construction', // This would be a category field in the database
+    fullDescription: job.description,
+    requirements: job.skills_required || [],
+    benefits: ['Competitive pay', 'Skill development'],
+    contactInfo: {
+      phone: job.employer?.phone || "+263 775 126 513",
+      whatsapp: job.employer?.phone || "+263 775 126 513",
+      email: "checkchirasha@gmail.com"
     }
   };
 
@@ -154,34 +232,34 @@ What We Offer:
           <CardHeader>
             <div className="flex justify-between items-start">
               <div className="flex-1">
-                <CardTitle className="text-2xl mb-2">{job.title}</CardTitle>
-                <CardDescription className="text-lg mb-4">{job.employer}</CardDescription>
+                <CardTitle className="text-2xl mb-2">{displayJob.title}</CardTitle>
+                <CardDescription className="text-lg mb-4">{displayJob.employer}</CardDescription>
                 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-1" />
-                    {job.location} • {job.distance}
+                    {displayJob.location} • {displayJob.distance}
                   </div>
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1" />
-                    {job.duration}
+                    {displayJob.duration}
                   </div>
                   <div className="flex items-center">
                     <Star className="h-4 w-4 mr-1 text-yellow-500" />
-                    {job.rating}
+                    {displayJob.rating}
                   </div>
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-1" />
-                    Posted {job.posted}
+                    Posted {displayJob.posted}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <Badge variant="secondary" className="text-lg px-3 py-1">
                     <DollarSign className="h-4 w-4 mr-1" />
-                    {job.pay}
+                    {displayJob.pay}
                   </Badge>
-                  <Badge variant="outline">{job.category}</Badge>
+                  <Badge variant="outline">{displayJob.category}</Badge>
                 </div>
               </div>
             </div>
@@ -229,7 +307,7 @@ What We Offer:
           </CardHeader>
           <CardContent>
             <div className="whitespace-pre-line text-gray-700 leading-relaxed">
-              {job.fullDescription}
+              {displayJob.fullDescription}
             </div>
           </CardContent>
         </Card>
@@ -242,7 +320,7 @@ What We Offer:
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.requirements.map((req, index) => (
+                {displayJob.requirements.map((req, index) => (
                   <li key={index} className="flex items-start">
                     <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
                     <span className="text-gray-700">{req}</span>
@@ -258,7 +336,7 @@ What We Offer:
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.benefits.map((benefit, index) => (
+                {displayJob.benefits.map((benefit, index) => (
                   <li key={index} className="flex items-start">
                     <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
                     <span className="text-gray-700">{benefit}</span>
@@ -282,27 +360,27 @@ What We Offer:
               <div className="flex items-center">
                 <Phone className="h-4 w-4 mr-2 text-gray-500" />
                 <span className="font-medium mr-2">Phone:</span>
-                <a href={`tel:${job.contactInfo.phone}`} className="text-blue-600 hover:underline">
-                  {job.contactInfo.phone}
+                <a href={`tel:${displayJob.contactInfo.phone}`} className="text-blue-600 hover:underline">
+                  {displayJob.contactInfo.phone}
                 </a>
               </div>
               <div className="flex items-center">
                 <MessageSquare className="h-4 w-4 mr-2 text-gray-500" />
                 <span className="font-medium mr-2">WhatsApp:</span>
                 <a 
-                  href={`https://wa.me/${job.contactInfo.whatsapp.replace(/\s+/g, '')}`} 
+                  href={`https://wa.me/${displayJob.contactInfo.whatsapp.replace(/\s+/g, '')}`} 
                   className="text-blue-600 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {job.contactInfo.whatsapp}
+                  {displayJob.contactInfo.whatsapp}
                 </a>
               </div>
               <div className="flex items-center">
                 <Mail className="h-4 w-4 mr-2 text-gray-500" />
                 <span className="font-medium mr-2">Email:</span>
-                <a href={`mailto:${job.contactInfo.email}`} className="text-blue-600 hover:underline">
-                  {job.contactInfo.email}
+                <a href={`mailto:${displayJob.contactInfo.email}`} className="text-blue-600 hover:underline">
+                  {displayJob.contactInfo.email}
                 </a>
               </div>
             </div>
