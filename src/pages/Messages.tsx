@@ -134,7 +134,11 @@ const Messages = () => {
                         <CardTitle className="text-lg">{getConversationName(selectedConversationData)}</CardTitle>
                         <p className="text-sm text-gray-600">{selectedConversationData.job?.title || "Job"}</p>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/job/${selectedConversationData.job_id}`)}
+                      >
                         <MapPin className="h-4 w-4 mr-2" />
                         View Job Details
                       </Button>
