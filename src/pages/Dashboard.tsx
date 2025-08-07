@@ -513,8 +513,11 @@ const Dashboard = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <Tabs defaultValue={userProfile?.role === 'worker' ? 'nearby' : 'jobs'} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs defaultValue={userProfile?.role === 'worker' ? 'findJobs' : 'jobs'} className="w-full">
+              <TabsList className={`grid w-full ${userProfile?.role === 'worker' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                {userProfile?.role === 'worker' && (
+                  <TabsTrigger value="findJobs">Find Jobs</TabsTrigger>
+                )}
                 <TabsTrigger value={userProfile?.role === 'worker' ? 'nearby' : 'jobs'}>
                   {userProfile?.role === 'worker' ? 'Available Jobs' : 'My Jobs'}
                 </TabsTrigger>
@@ -523,6 +526,90 @@ const Dashboard = () => {
                 </TabsTrigger>
                 <TabsTrigger value="activity">Recent Activity</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="findJobs" className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Find Jobs</h3>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/find-work')}>
+                    <Search className="h-4 w-4 mr-2" />
+                    Browse All Jobs
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {nearbyJobs.slice(0, 5).map((job) => (
+                    <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleJobClick(job.id)}>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-semibold text-lg">{job.title}</h4>
+                            <p className="text-gray-600">{job.profiles?.full_name}</p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <Badge variant="secondary" className="text-green-600 bg-green-50">
+                              ${job.pay_rate}/{job.pay_type}
+                            </Badge>
+                            <Badge variant={job.status === 'open' ? 'default' : 'secondary'}>
+                              {job.status}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                          <div className="flex items-center">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            {job.location}
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {job.duration || 'Not specified'}
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-gray-700 mb-3">{job.description.substring(0, 150)}...</p>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">
+                            Posted {new Date(job.created_at).toLocaleDateString()}
+                          </span>
+                          <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="outline" size="sm" onClick={() => handleJobClick(job.id)}>
+                              View Details
+                            </Button>
+                            <Button size="sm" onClick={() => handleApplyNow(job.id)}>
+                              Apply Now
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {nearbyJobs.length === 0 && (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <p className="text-gray-500">
+                          No jobs available at the moment. Check back later!
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {nearbyJobs.length > 5 && (
+                    <Card className="border-dashed">
+                      <CardContent className="p-6 text-center">
+                        <p className="text-gray-600 mb-4">
+                          Showing 5 of {nearbyJobs.length} available jobs
+                        </p>
+                        <Button onClick={() => navigate('/find-work')}>
+                          <Search className="h-4 w-4 mr-2" />
+                          View All {nearbyJobs.length} Jobs
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
 
               <TabsContent value={userProfile?.role === 'worker' ? 'nearby' : 'jobs'} className="space-y-4">
                 <div className="flex justify-between items-center">
