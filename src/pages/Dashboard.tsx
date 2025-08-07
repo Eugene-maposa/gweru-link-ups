@@ -16,6 +16,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [nearbyJobs, setNearbyJobs] = useState<any[]>([]);
   const [myApplications, setMyApplications] = useState<any[]>([]);
+  const [receivedApplications, setReceivedApplications] = useState<any[]>([]);
   const [myJobs, setMyJobs] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState({
     totalJobs: 0,
@@ -64,6 +65,7 @@ const Dashboard = () => {
       } else if (userProfile?.role === 'employer') {
         await Promise.all([
           fetchMyJobs(),
+          fetchReceivedApplications(),
           fetchEmployerStats()
         ]);
       } else if (userProfile?.role === 'admin') {
@@ -157,6 +159,35 @@ const Dashboard = () => {
       setMyApplications(data || []);
     } catch (error) {
       console.error('Error fetching applications:', error);
+    }
+  };
+
+  const fetchReceivedApplications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select(`
+          *,
+          profiles:worker_id (
+            full_name
+          ),
+          jobs (
+            id,
+            title,
+            pay_rate,
+            pay_type
+          )
+        `)
+        .eq('jobs.employer_id', userProfile?.id)
+        .order('applied_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching received applications:', error);
+        return;
+      }
+      setReceivedApplications(data || []);
+    } catch (error) {
+      console.error('Error fetching received applications:', error);
     }
   };
 
@@ -589,18 +620,25 @@ const Dashboard = () => {
               <TabsContent value="applications" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">
-                    {userProfile?.role === 'worker' ? 'My Job Applications' : 'Job Applications'}
+                    {userProfile?.role === 'worker' ? 'My Job Applications' : 'Applications Received'}
                   </h3>
-                  <Badge variant="outline">{myApplications.length} Applications</Badge>
+                  <Badge variant="outline">
+                    {userProfile?.role === 'worker' ? myApplications.length : receivedApplications.length} Applications
+                  </Badge>
                 </div>
                 <div className="space-y-4">
-                  {myApplications.map((application) => (
+                  {(userProfile?.role === 'worker' ? myApplications : receivedApplications).map((application) => (
                     <Card key={application.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="font-semibold">{application.jobs?.title}</h4>
-                            <p className="text-gray-600">{application.jobs?.profiles?.full_name}</p>
+                            <p className="text-gray-600">
+                              {userProfile?.role === 'worker' 
+                                ? application.jobs?.profiles?.full_name 
+                                : application.profiles?.full_name
+                              }
+                            </p>
                             <p className="text-sm text-gray-500">
                               Applied on {new Date(application.applied_at).toLocaleDateString()}
                             </p>
@@ -618,7 +656,7 @@ const Dashboard = () => {
                               {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
                             </Badge>
                             <Button variant="outline" size="sm">
-                              View Application
+                              {userProfile?.role === 'worker' ? 'View Application' : 'Review Application'}
                             </Button>
                           </div>
                         </div>
@@ -626,10 +664,15 @@ const Dashboard = () => {
                     </Card>
                   ))}
 
-                  {myApplications.length === 0 && (
+                  {(userProfile?.role === 'worker' ? myApplications : receivedApplications).length === 0 && (
                     <Card>
                       <CardContent className="p-6 text-center">
-                        <p className="text-gray-500">No applications yet. Start applying to jobs!</p>
+                        <p className="text-gray-500">
+                          {userProfile?.role === 'worker' 
+                            ? 'No applications yet. Start applying to jobs!' 
+                            : 'No applications received yet for your job postings.'
+                          }
+                        </p>
                       </CardContent>
                     </Card>
                   )}
