@@ -94,8 +94,7 @@ const Dashboard = () => {
           )
         `)
         .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching jobs:', error);
