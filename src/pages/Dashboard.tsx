@@ -528,12 +528,19 @@ const Dashboard = () => {
               </TabsList>
 
               <TabsContent value="findJobs" className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Find Jobs</h3>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/find-work')}>
+                <div className="mb-6">
+                  <Button 
+                    onClick={() => navigate('/find-work')} 
+                    className="w-full"
+                    size="lg"
+                  >
                     <Search className="h-4 w-4 mr-2" />
-                    Browse All Jobs
+                    Browse All Jobs in Find Work Section
                   </Button>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Quick Job Preview</h3>
                 </div>
                 
                 <div className="space-y-4">
