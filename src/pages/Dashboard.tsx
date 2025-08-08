@@ -170,11 +170,12 @@ const Dashboard = () => {
           profiles:worker_id (
             full_name
           ),
-          jobs (
+          jobs!inner (
             id,
             title,
             pay_rate,
-            pay_type
+            pay_type,
+            employer_id
           )
         `)
         .eq('jobs.employer_id', userProfile?.id)
