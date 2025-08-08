@@ -108,16 +108,63 @@ What We Offer:
   };
 
   const handleApply = async () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to apply for jobs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsApplying(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    toast({
-      title: "Application Submitted!",
-      description: "Your application has been sent to the employer. They will contact you soon.",
-    });
-    
-    setIsApplying(false);
+    try {
+      // Check if user has already applied
+      const { data: existingApplication, error: checkError } = await supabase
+        .from('job_applications')
+        .select('id')
+        .eq('job_id', job.id)
+        .eq('worker_id', user.id)
+        .single();
+
+      if (existingApplication) {
+        toast({
+          title: "Already Applied",
+          description: "You have already applied for this job.",
+          variant: "destructive",
+        });
+        setIsApplying(false);
+        return;
+      }
+
+      // Create job application
+      const { error } = await supabase
+        .from('job_applications')
+        .insert({
+          job_id: job.id,
+          worker_id: user.id,
+          status: 'pending'
+        });
+
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Application Submitted!",
+        description: "Your application has been sent to the employer. They will contact you soon.",
+      });
+    } catch (error) {
+      console.error('Error applying for job:', error);
+      toast({
+        title: "Application Failed",
+        description: "Failed to submit your application. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleContactEmployer = () => {
