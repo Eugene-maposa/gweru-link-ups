@@ -520,16 +520,16 @@ const Dashboard = () => {
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Tabs defaultValue={userProfile?.role === 'worker' ? 'findJobs' : 'jobs'} className="w-full">
-              <TabsList className={`grid w-full ${userProfile?.role === 'worker' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              <TabsList className={`grid w-full ${userProfile?.role === 'worker' ? 'grid-cols-3' : 'grid-cols-3'}`}>
                 {userProfile?.role === 'worker' && (
                   <TabsTrigger value="findJobs">Find Jobs</TabsTrigger>
                 )}
-                <TabsTrigger value={userProfile?.role === 'worker' ? 'nearby' : 'jobs'}>
-                  {userProfile?.role === 'worker' ? 'Available Jobs' : 'My Jobs'}
+                <TabsTrigger value={userProfile?.role === 'worker' ? 'applications' : 'jobs'}>
+                  {userProfile?.role === 'worker' ? 'My Applications' : 'My Jobs'}
                 </TabsTrigger>
-                <TabsTrigger value="applications">
-                  {userProfile?.role === 'worker' ? 'My Applications' : 'Applications'}
-                </TabsTrigger>
+                {userProfile?.role === 'employer' && (
+                  <TabsTrigger value="applications">Applications Received</TabsTrigger>
+                )}
                 <TabsTrigger value="activity">Recent Activity</TabsTrigger>
               </TabsList>
 
@@ -624,39 +624,26 @@ const Dashboard = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value={userProfile?.role === 'worker' ? 'nearby' : 'jobs'} className="space-y-4">
+              <TabsContent value="jobs" className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">
-                    {userProfile?.role === 'worker' ? 'Jobs Available' : userProfile?.role === 'employer' ? 'My Posted Jobs' : 'Recent Jobs'}
-                  </h3>
+                  <h3 className="text-lg font-semibold">My Posted Jobs</h3>
                   <div className="flex space-x-2">
-                    {userProfile?.role === 'worker' && (
-                      <Button variant="outline" size="sm" onClick={() => navigate('/find-work')}>
-                        <Search className="h-4 w-4 mr-2" />
-                        View All Jobs
-                      </Button>
-                    )}
-                    {userProfile?.role === 'employer' && (
-                      <Button variant="outline" size="sm" onClick={() => navigate('/post-job')}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Post New Job
-                      </Button>
-                    )}
+                    <Button variant="outline" size="sm" onClick={() => navigate('/post-job')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Post New Job
+                    </Button>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
-                  {(userProfile?.role === 'employer' ? myJobs : nearbyJobs).map((job) => (
+                  {myJobs.map((job) => (
                     <Card key={job.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleJobClick(job.id)}>
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <h4 className="font-semibold text-lg">{job.title}</h4>
                             <p className="text-gray-600">
-                              {userProfile?.role === 'employer' ? 
-                                `${job.job_applications?.length || 0} applications` : 
-                                job.profiles?.full_name
-                              }
+                              {job.job_applications?.length || 0} applications
                             </p>
                           </div>
                           <div className="flex flex-col items-end space-y-2">
@@ -686,30 +673,27 @@ const Dashboard = () => {
                           <span className="text-sm text-gray-500">
                             Posted {new Date(job.created_at).toLocaleDateString()}
                           </span>
-                          {userProfile?.role === 'worker' && (
-                            <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-                              <Button variant="outline" size="sm" onClick={() => handleJobClick(job.id)}>
-                                View Details
-                              </Button>
-                              <Button size="sm" onClick={() => handleApplyNow(job.id)}>
-                                Apply Now
-                              </Button>
-                            </div>
-                          )}
+                          <Button variant="outline" size="sm" onClick={(e) => {
+                            e.stopPropagation();
+                            handleJobClick(job.id);
+                          }}>
+                            View Details
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
 
-                  {(userProfile?.role === 'employer' ? myJobs : nearbyJobs).length === 0 && (
+                  {myJobs.length === 0 && (
                     <Card>
                       <CardContent className="p-6 text-center">
                         <p className="text-gray-500">
-                          {userProfile?.role === 'employer' ? 
-                            'No jobs posted yet. Create your first job posting!' : 
-                            'No jobs available at the moment. Check back later!'
-                          }
+                          No jobs posted yet. Create your first job posting!
                         </p>
+                        <Button className="mt-4" onClick={() => navigate('/post-job')}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Post Your First Job
+                        </Button>
                       </CardContent>
                     </Card>
                   )}
@@ -730,32 +714,51 @@ const Dashboard = () => {
                     <Card key={application.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-semibold">{application.jobs?.title}</h4>
-                            <p className="text-gray-600">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-lg">{application.jobs?.title}</h4>
+                            <p className="text-gray-600 mb-2">
                               {userProfile?.role === 'worker' 
-                                ? application.jobs?.profiles?.full_name 
-                                : application.profiles?.full_name
+                                ? `Employer: ${application.jobs?.profiles?.full_name || 'Unknown'}` 
+                                : `Applicant: ${application.profiles?.full_name || 'Unknown'}`
                               }
                             </p>
-                            <p className="text-sm text-gray-500">
-                              Applied on {new Date(application.applied_at).toLocaleDateString()}
-                            </p>
-                            {application.jobs?.pay_rate && (
-                              <p className="text-sm font-medium text-green-600">
-                                ${application.jobs.pay_rate}/{application.jobs.pay_type}
+                            <div className="space-y-1">
+                              <p className="text-sm text-gray-500">
+                                Applied on {new Date(application.applied_at).toLocaleDateString()}
                               </p>
-                            )}
+                              {application.jobs?.pay_rate && (
+                                <p className="text-sm font-medium text-green-600">
+                                  Pay: ${application.jobs.pay_rate}/{application.jobs.pay_type}
+                                </p>
+                              )}
+                              {application.jobs?.location && (
+                                <p className="text-sm text-gray-600 flex items-center">
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  {application.jobs.location}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex flex-col items-end space-y-2">
+                          <div className="flex flex-col items-end space-y-2 ml-4">
                             <Badge 
-                              variant={application.status === 'accepted' ? 'default' : 'secondary'}
-                              className={application.status === 'accepted' ? 'bg-green-500' : ''}
+                              variant={
+                                application.status === 'accepted' ? 'default' : 
+                                application.status === 'rejected' ? 'destructive' : 
+                                'secondary'
+                              }
+                              className={
+                                application.status === 'accepted' ? 'bg-green-500' : 
+                                application.status === 'rejected' ? 'bg-red-500' : ''
+                              }
                             >
                               {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
                             </Badge>
-                            <Button variant="outline" size="sm">
-                              {userProfile?.role === 'worker' ? 'View Application' : 'Review Application'}
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleJobClick(application.job_id)}
+                            >
+                              View Job
                             </Button>
                           </div>
                         </div>
@@ -766,12 +769,19 @@ const Dashboard = () => {
                   {(userProfile?.role === 'worker' ? myApplications : receivedApplications).length === 0 && (
                     <Card>
                       <CardContent className="p-6 text-center">
-                        <p className="text-gray-500">
+                        <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-500 mb-4">
                           {userProfile?.role === 'worker' 
                             ? 'No applications yet. Start applying to jobs!' 
                             : 'No applications received yet for your job postings.'
                           }
                         </p>
+                        {userProfile?.role === 'worker' && (
+                          <Button onClick={() => navigate('/find-work')}>
+                            <Search className="h-4 w-4 mr-2" />
+                            Browse Jobs
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   )}
