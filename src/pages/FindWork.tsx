@@ -5,15 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Filter, Briefcase } from "lucide-react";
+import { Search, MapPin, Filter, Briefcase, ArrowLeft } from "lucide-react";
 import JobCard from "@/components/JobCard";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const FindWork = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("");
@@ -92,7 +94,12 @@ const FindWork = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div className="mb-4 md:mb-0">
-              <h1 className="text-3xl font-bold text-gray-900">Find Work</h1>
+              <div className="flex items-center space-x-4 mb-2">
+                <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <h1 className="text-3xl font-bold text-gray-900">Find Work</h1>
+              </div>
               <p className="text-gray-600 mt-1">Discover job opportunities in your area</p>
             </div>
             <div className="flex items-center space-x-2">

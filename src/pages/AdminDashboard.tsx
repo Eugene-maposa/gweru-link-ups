@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, RefreshCw, Clock } from "lucide-react";
+import { AlertCircle, RefreshCw, Clock, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import PendingApprovals from "@/components/admin/PendingApprovals";
@@ -394,6 +394,9 @@ const AdminDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
+              <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
               
               {/* Refresh Controls */}
