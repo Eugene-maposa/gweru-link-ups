@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,9 +23,14 @@ const JobDetails = () => {
   // Fetch job data from database
   useEffect(() => {
     const fetchJob = async () => {
-      if (!id) return;
+      if (!id) {
+        setLoading(false);
+        return;
+      }
       
       try {
+        console.log('Fetching job with ID:', id);
+        
         const { data, error } = await supabase
           .from('jobs')
           .select(`
@@ -34,10 +38,14 @@ const JobDetails = () => {
             employer:profiles!jobs_employer_id_fkey(full_name, phone)
           `)
           .eq('id', id)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to handle no results
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching job:', error);
+          throw error;
+        }
         
+        console.log('Fetched job data:', data);
         setJob(data);
       } catch (error) {
         console.error('Error fetching job:', error);
@@ -53,59 +61,6 @@ const JobDetails = () => {
 
     fetchJob();
   }, [id, toast]);
-
-  // Mock contact info fallback for demo
-  const mockJob = {
-    id: parseInt(id || "1"),
-    title: "Construction Helper Needed",
-    employer: "ABC Construction",
-    location: "City Center",
-    distance: "0.5 km",
-    pay: "$15/day",
-    duration: "3 days",
-    rating: 4.8,
-    posted: "2 hours ago",
-    category: "Construction",
-    description: "Looking for reliable construction helper for building project. Must be physically fit and punctual.",
-    fullDescription: `We are seeking a reliable and hardworking construction helper to join our team for a 3-day building project in the City Center. This is an excellent opportunity for someone looking to gain experience in the construction industry.
-
-Key Responsibilities:
-• Assist with general construction tasks
-• Help with material handling and transportation
-• Support skilled workers with various projects
-• Maintain a clean and safe work environment
-• Follow all safety protocols and guidelines
-
-Requirements:
-• Must be physically fit and able to lift heavy objects
-• Punctual and reliable
-• Willing to work in various weather conditions
-• Basic understanding of construction safety
-• Previous construction experience preferred but not required
-
-What We Offer:
-• Competitive daily rate of $15
-• Safe working environment
-• Opportunity to learn new skills
-• Potential for future work opportunities`,
-    requirements: [
-      "Must be physically fit",
-      "Punctual and reliable",
-      "Basic safety knowledge",
-      "Team player"
-    ],
-    benefits: [
-      "Competitive pay",
-      "Skill development",
-      "Safe environment",
-      "Future opportunities"
-    ],
-    contactInfo: {
-      phone: "+263 775 126 513",
-      whatsapp: "+263 775 126 513",
-      email: "checkchirasha@gmail.com"
-    }
-  };
 
   const handleApply = async () => {
     if (!user) {
@@ -168,18 +123,17 @@ What We Offer:
   };
 
   const handleContactEmployer = () => {
-    // Open phone dialer
-    window.open(`tel:${displayJob.contactInfo.phone}`);
+    if (!job?.employer?.phone) return;
+    window.open(`tel:${job.employer.phone}`);
   };
 
   const handleContactWhatsapp = () => {
-    // Open WhatsApp with the number
-    window.open(`https://wa.me/${displayJob.contactInfo.whatsapp.replace(/\s+/g, '')}`);
+    if (!job?.employer?.phone) return;
+    window.open(`https://wa.me/${job.employer.phone.replace(/\s+/g, '')}`);
   };
 
   const handleContactEmail = () => {
-    // Open email client
-    window.open(`mailto:${displayJob.contactInfo.email}`);
+    window.open(`mailto:checkchirasha@gmail.com`);
   };
 
   const handleMessageEmployer = async () => {
@@ -225,7 +179,10 @@ What We Offer:
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div>Loading job details...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Loading job details...</p>
+        </div>
       </div>
     );
   }
@@ -233,12 +190,19 @@ What We Offer:
   if (!job) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div>Job not found</div>
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h2>
+          <p className="text-gray-600 mb-4">The job you're looking for doesn't exist or has been removed.</p>
+          <Button onClick={() => navigate('/find-work')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Jobs
+          </Button>
+        </div>
       </div>
     );
   }
 
-  // Use real job data with fallbacks for display
+  // Use real job data with proper formatting
   const displayJob = {
     ...job,
     employer: job.employer?.full_name || 'Unknown Employer',
@@ -248,9 +212,9 @@ What We Offer:
     duration: job.duration || 'Duration not specified',
     rating: 4.8, // This would come from employer ratings in a real app
     posted: new Date(job.created_at).toLocaleDateString(),
-    category: 'Construction', // This would be a category field in the database
+    category: 'General', // This would be a category field in the database
     fullDescription: job.description,
-    requirements: job.skills_required || [],
+    requirements: job.skills_required || ['No specific requirements listed'],
     benefits: ['Competitive pay', 'Skill development'],
     contactInfo: {
       phone: job.employer?.phone || "+263 775 126 513",

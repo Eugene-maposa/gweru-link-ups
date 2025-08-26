@@ -1,247 +1,176 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Filter } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, MapPin, Filter, Briefcase } from "lucide-react";
 import JobCard from "@/components/JobCard";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const FindWork = () => {
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
+  const [location, setLocation] = useState("");
+  const [category, setCategory] = useState("");
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const jobs = [
-    {
-      id: 1,
-      title: "Construction Helper Needed",
-      employer: "ABC Construction",
-      location: "City Center",
-      distance: "0.5 km",
-      pay: "$15/day",
-      duration: "3 days",
-      rating: 4.8,
-      posted: "2 hours ago",
-      category: "Construction",
-      description: "Looking for reliable construction helper for building project. Must be physically fit and punctual."
-    },
-    {
-      id: 2,
-      title: "Garden Maintenance Work",
-      employer: "Green Spaces Ltd",
-      location: "Suburbs",
-      distance: "1.2 km",
-      pay: "$8/day",
-      duration: "1 day",
-      rating: 4.5,
-      posted: "5 hours ago",
-      category: "Gardening",
-      description: "Need someone to help with lawn mowing, weeding, and general garden cleanup."
-    },
-    {
-      id: 3,
-      title: "Moving Assistant Required",
-      employer: "Sarah Johnson",
-      location: "Kumalo",
-      distance: "2.1 km",
-      pay: "$12/day",
-      duration: "1 day",
-      rating: 4.9,
-      posted: "1 day ago",
-      category: "Moving",
-      description: "Help needed with packing and moving household items to new location."
-    },
-    {
-      id: 4,
-      title: "Warehouse Loading",
-      employer: "StoreCorp",
-      location: "City Center",
-      distance: "0.8 km",
-      pay: "$10/day",
-      duration: "Ongoing",
-      rating: 4.6,
-      posted: "2 days ago",
-      category: "Warehouse",
-      description: "Loading and unloading goods at warehouse. Physical work required."
-    },
-    {
-      id: 5,
-      title: "Event Setup Helper",
-      employer: "Events Plus",
-      location: "Nkulumane",
-      distance: "3.2 km",
-      pay: "$14/day",
-      duration: "2 days",
-      rating: 4.7,
-      posted: "3 days ago",
-      category: "Events",
-      description: "Setting up chairs, tables, and decorations for wedding event."
-    },
-    {
-      id: 6,
-      title: "House Cleaning Service",
-      employer: "Clean & Shine",
-      location: "Luveve",
-      distance: "4.1 km",
-      pay: "$6/day",
-      duration: "Half day",
-      rating: 4.3,
-      posted: "4 days ago",
-      category: "Cleaning",
-      description: "Deep cleaning of residential property. Experience with cleaning supplies preferred."
-    },
-    {
-      id: 7,
-      title: "Delivery Driver Helper",
-      employer: "Fast Delivery Co",
-      location: "Mpopoma",
-      distance: "2.8 km",
-      pay: "$9/day",
-      duration: "1 day",
-      rating: 4.4,
-      posted: "1 week ago",
-      category: "Delivery",
-      description: "Assist delivery driver with loading, unloading, and navigating routes."
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(`
+          *,
+          employer:profiles!jobs_employer_id_fkey(full_name)
+        `)
+        .eq('status', 'open')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Fetched jobs:', data);
+      setJobs(data || []);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load jobs. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         job.employer.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !selectedCategory || selectedCategory === "all" || job.category === selectedCategory;
-    const matchesLocation = !selectedLocation || selectedLocation === "all" || job.location === selectedLocation;
-    
-    return matchesSearch && matchesCategory && matchesLocation;
-  });
+  const handleSearch = () => {
+    // In a real app, this would filter the jobs based on searchTerm, location, and category
+    fetchJobs();
+  };
 
-  // Sort jobs based on selected criteria
-  const sortedJobs = [...filteredJobs].sort((a, b) => {
-    switch (sortBy) {
-      case "pay":
-        return parseInt(b.pay.replace(/[^\d]/g, '')) - parseInt(a.pay.replace(/[^\d]/g, ''));
-      case "rating":
-        return b.rating - a.rating;
-      case "distance":
-        return parseFloat(a.distance) - parseFloat(b.distance);
-      default: // newest
-        return new Date(b.posted).getTime() - new Date(a.posted).getTime();
-    }
-  });
+  // Transform database jobs to match JobCard interface
+  const transformedJobs = jobs.map(job => ({
+    id: job.id,
+    title: job.title,
+    employer: job.employer?.full_name || 'Unknown Employer',
+    location: job.location,
+    distance: '0.5 km', // This would be calculated based on user location
+    pay: `$${job.pay_rate}/${job.pay_type}`,
+    duration: job.duration || 'Duration not specified',
+    rating: 4.8, // This would come from employer ratings
+    posted: new Date(job.created_at).toLocaleDateString(),
+    category: 'General', // This would be a category field in the database
+    description: job.description,
+    status: job.status
+  }));
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Loading jobs...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-2xl font-bold text-gray-900">Find Work</h1>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="mb-4 md:mb-0">
+              <h1 className="text-3xl font-bold text-gray-900">Find Work</h1>
+              <p className="text-gray-600 mt-1">Discover job opportunities in your area</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant="secondary" className="text-sm">
+                {transformedJobs.length} Jobs Available
+              </Badge>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filters */}
-        <Card className="mb-6">
+        {/* Search and Filter Section */}
+        <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Search className="h-5 w-5 mr-2" />
               Search Jobs
             </CardTitle>
-            <CardDescription>
-              Find jobs that match your skills and location preferences
-            </CardDescription>
+            <CardDescription>Find the perfect job opportunity</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <Input
-                  placeholder="Search jobs or employers..."
+                  placeholder="Search jobs, skills, or companies..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full"
                 />
               </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="Construction">Construction</SelectItem>
-                  <SelectItem value="Gardening">Gardening</SelectItem>
-                  <SelectItem value="Moving">Moving</SelectItem>
-                  <SelectItem value="Warehouse">Warehouse</SelectItem>
-                  <SelectItem value="Events">Events</SelectItem>
-                  <SelectItem value="Cleaning">Cleaning</SelectItem>
-                  <SelectItem value="Delivery">Delivery</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Locations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  <SelectItem value="City Center">City Center</SelectItem>
-                  <SelectItem value="Suburbs">Suburbs</SelectItem>
-                  <SelectItem value="Kumalo">Kumalo</SelectItem>
-                  <SelectItem value="Luveve">Luveve</SelectItem>
-                  <SelectItem value="Nkulumane">Nkulumane</SelectItem>
-                  <SelectItem value="Mpopoma">Mpopoma</SelectItem>
-                  <SelectItem value="Entumbane">Entumbane</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="pay">Highest Pay</SelectItem>
-                  <SelectItem value="rating">Best Rating</SelectItem>
-                  <SelectItem value="distance">Closest</SelectItem>
-                </SelectContent>
-              </Select>
+              <div>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="w-full">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="construction">Construction</SelectItem>
+                    <SelectItem value="cleaning">Cleaning</SelectItem>
+                    <SelectItem value="gardening">Gardening</SelectItem>
+                    <SelectItem value="delivery">Delivery</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleSearch} className="whitespace-nowrap">
+                  Search
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Results */}
-        <div className="mb-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">
-            {sortedJobs.length} Job{sortedJobs.length !== 1 ? 's' : ''} Found
-          </h2>
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            More Filters
-          </Button>
+        {/* Jobs Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {transformedJobs.length > 0 ? (
+            transformedJobs.map((job) => (
+              <JobCard key={job.id} job={job} />
+            ))
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <Briefcase className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium">No jobs found</h3>
+              <p className="text-gray-500">Try adjusting your search criteria</p>
+            </div>
+          )}
         </div>
-
-        {/* Job Listings */}
-        <div className="space-y-4">
-          {sortedJobs.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
-        </div>
-
-        {sortedJobs.length === 0 && (
-          <Card className="text-center py-8">
-            <CardContent>
-              <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
-              <p className="text-gray-600">
-                Try adjusting your search criteria or check back later for new opportunities.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

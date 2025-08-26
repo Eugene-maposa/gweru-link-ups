@@ -7,17 +7,18 @@ import { useNavigate } from "react-router-dom";
 
 interface JobCardProps {
   job: {
-    id: number;
+    id: string; // Changed from number to string for UUID
     title: string;
     employer: string;
     location: string;
-    distance: string;
+    distance?: string;
     pay: string;
-    duration: string;
-    rating: number;
+    duration?: string;
+    rating?: number;
     posted: string;
-    category: string;
+    category?: string;
     description: string;
+    status?: string;
   };
 }
 
@@ -47,17 +48,21 @@ const JobCard = ({ job }: JobCardProps) => {
         <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
           <div className="flex items-center">
             <MapPin className="h-4 w-4 mr-1" />
-            {job.location} • {job.distance}
+            {job.location} {job.distance && `• ${job.distance}`}
           </div>
-          <div className="flex items-center">
-            <Clock className="h-4 w-4 mr-1" />
-            {job.duration}
-          </div>
-          <div className="flex items-center">
-            <Star className="h-4 w-4 mr-1 text-yellow-500" />
-            {job.rating}
-          </div>
-          <Badge variant="outline">{job.category}</Badge>
+          {job.duration && (
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              {job.duration}
+            </div>
+          )}
+          {job.rating && (
+            <div className="flex items-center">
+              <Star className="h-4 w-4 mr-1 text-yellow-500" />
+              {job.rating}
+            </div>
+          )}
+          {job.category && <Badge variant="outline">{job.category}</Badge>}
         </div>
         
         <div className="flex justify-between items-center">
