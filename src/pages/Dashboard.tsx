@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ApprovalStatus from "@/components/ApprovalStatus";
 import { useToast } from "@/hooks/use-toast";
+import dashboardBackground from "@/assets/dashboard-background.jpg";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -455,9 +456,14 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div 
+      className="min-h-screen bg-cover bg-center bg-no-repeat relative"
+      style={{ backgroundImage: `url(${dashboardBackground})` }}
+    >
+      <div className="absolute inset-0 bg-white/90"></div>
+      <div className="relative z-10">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
@@ -819,6 +825,7 @@ const Dashboard = () => {
             </Tabs>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

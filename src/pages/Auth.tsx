@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle, Eye, EyeOff, Upload, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import authBackground from "@/assets/auth-background.jpg";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -414,8 +415,12 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 p-4">
-      <Card className="w-full max-w-md">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative"
+      style={{ backgroundImage: `url(${authBackground})` }}
+    >
+      <div className="absolute inset-0 bg-black/40"></div>
+      <Card className="w-full max-w-md relative z-10">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">BulawayoJobs</CardTitle>
           <CardDescription>Join our community of workers and employers</CardDescription>

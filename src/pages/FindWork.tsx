@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import findworkBackground from "@/assets/findwork-background.jpg";
 
 const FindWork = () => {
   const { user } = useAuth();
@@ -88,9 +89,14 @@ const FindWork = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div 
+      className="min-h-screen bg-cover bg-center bg-no-repeat relative"
+      style={{ backgroundImage: `url(${findworkBackground})` }}
+    >
+      <div className="absolute inset-0 bg-white/90"></div>
+      <div className="relative z-10">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div className="mb-4 md:mb-0">
@@ -178,6 +184,7 @@ const FindWork = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
