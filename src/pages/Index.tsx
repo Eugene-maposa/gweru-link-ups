@@ -6,6 +6,7 @@ import { Users, Briefcase, MapPin, Star, ArrowRight, ShieldCheck } from "lucide-
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import ApprovalStatus from "@/components/ApprovalStatus";
+import heroBackground from "@/assets/hero-background.jpg";
 
 const Index = () => {
   const { user, userProfile } = useAuth();
@@ -38,14 +39,19 @@ const Index = () => {
       </nav>
 
       {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div 
+        className="relative min-h-[600px] flex items-center bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${heroBackground})` }}
+      >
+        <div className="absolute inset-0 bg-black/50"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
             Connect Workers & Employers
             <br />
-            <span className="text-blue-600">in Bulawayo</span>
+            <span className="text-blue-400">in Bulawayo</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-100 mb-8 max-w-3xl mx-auto">
             Join the leading platform that connects skilled workers with employers in Bulawayo. 
             Find work opportunities or hire trusted workers with verified credentials.
           </p>
@@ -64,7 +70,10 @@ const Index = () => {
             </Link>
           </div>
         </div>
+        </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
           <Card>
