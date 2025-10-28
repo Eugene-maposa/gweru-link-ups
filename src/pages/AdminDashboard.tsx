@@ -62,57 +62,28 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Verifying admin access for user:', user?.id);
 
       if (!user) {
         throw new Error('No authenticated user');
       }
 
-      // First, check if user has a profile
-      console.log('Checking user profile...');
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+      // Check if user has admin role in user_roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
         .maybeSingle();
 
-      if (profileError) {
-        console.error('Profile check error:', profileError);
-        throw new Error(`Profile check failed: ${profileError.message}`);
+      if (roleError && roleError.code !== 'PGRST116') {
+        throw new Error(`Role check failed: ${roleError.message}`);
       }
 
-      console.log('Profile found:', profile);
-
-      // If no profile exists, create admin profile
-      if (!profile) {
-        console.log('No profile found, creating admin profile...');
-        
-        const { error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email || '',
-            full_name: user.email?.split('@')[0] || 'Admin',
-            phone: '',
-            national_id: '',
-            role: 'admin',
-            location: '',
-            approval_status: 'approved'
-          });
-
-        if (createError) {
-          console.error('Failed to create admin profile:', createError);
-          throw new Error(`Failed to create admin profile: ${createError.message}`);
-        }
-
-        console.log('Admin profile created successfully');
-      } else if (profile.role !== 'admin') {
-        console.log('User is not admin, role:', profile.role);
-        throw new Error('Access denied: Admin role required');
+      if (!roleData) {
+        throw new Error('Access denied: Admin privileges required');
       }
 
       setIsAdminVerified(true);
-      console.log('Admin access verified, fetching data...');
       
       // Now fetch all data
       await fetchAllData();
@@ -135,26 +106,32 @@ const AdminDashboard = () => {
       setRefreshing(true);
       console.log('Starting fetchAllData...');
 
-      // Fetch all users with simplified query
-      console.log('Fetching users...');
+      // Fetch all users with their roles
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (usersError) {
-        console.error('Error fetching users:', usersError);
-        // Don't throw error, just log it and continue
         setAllUsers([]);
         setPendingUsers([]);
       } else {
-        console.log('Users fetched successfully:', usersData?.length || 0);
-        setAllUsers(usersData || []);
+        // Fetch roles for all users
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('user_id, role');
+        
+        // Map roles to users
+        const usersWithRoles = (usersData || []).map(user => ({
+          ...user,
+          roles: rolesData?.filter(r => r.user_id === user.id).map(r => r.role) || []
+        }));
+        
+        setAllUsers(usersWithRoles);
         
         // Filter pending users
-        const pending = (usersData || []).filter(user => user.approval_status === 'pending');
+        const pending = usersWithRoles.filter(user => user.approval_status === 'pending');
         setPendingUsers(pending);
-        console.log('Pending users:', pending.length);
       }
 
       // Fetch all jobs with simplified query
@@ -214,8 +191,8 @@ const AdminDashboard = () => {
     
     const totalUsers = users.length;
     const pendingApprovals = users.filter(user => user.approval_status === 'pending').length;
-    const totalWorkers = users.filter(user => user.role === 'worker').length;
-    const totalEmployers = users.filter(user => user.role === 'employer').length;
+    const totalWorkers = users.filter(user => user.roles?.includes('worker')).length;
+    const totalEmployers = users.filter(user => user.roles?.includes('employer')).length;
     
     const totalJobs = jobs.length;
     const activeJobs = jobs.filter(job => job.status === 'open').length;
@@ -271,30 +248,46 @@ const AdminDashboard = () => {
 
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'worker' | 'employer') => {
     try {
-      console.log(`Updating user ${userId} role to ${newRole}`);
+      // First, get current roles
+      const { data: currentRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
       
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          role: newRole,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('Error updating user role:', error);
-        throw error;
+      const currentRoleValues = currentRoles?.map(r => r.role) || [];
+      
+      // If adding admin role
+      if (newRole === 'admin' && !currentRoleValues.includes('admin')) {
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: newRole });
+        
+        if (error) throw error;
+      } 
+      // If removing admin role, delete it and keep/add their original role
+      else if (newRole !== 'admin' && currentRoleValues.includes('admin')) {
+        // Delete admin role
+        await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', userId)
+          .eq('role', 'admin');
+        
+        // Ensure they have the new role
+        if (!currentRoleValues.includes(newRole)) {
+          await supabase
+            .from('user_roles')
+            .insert({ user_id: userId, role: newRole });
+        }
       }
-
+      
       toast({
-        title: "Role Updated",
-        description: `User role has been changed to ${newRole}.`,
+        title: "Success",
+        description: `User role updated to ${newRole}`,
       });
-
-      // Refresh data
+      
       await fetchAllData();
     } catch (error: any) {
-      console.error('Failed to update user role:', error);
       toast({
         title: "Error",
         description: `Failed to update user role: ${error.message}`,

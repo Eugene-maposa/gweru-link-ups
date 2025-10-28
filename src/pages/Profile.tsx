@@ -49,7 +49,7 @@ const Profile = () => {
         experience_years: ''
       });
       
-      if (userProfile.role === 'worker') {
+      if (userProfile.roles?.includes('worker')) {
         fetchWorkerProfile();
       }
     }
@@ -105,7 +105,7 @@ const Profile = () => {
       if (profileError) throw profileError;
       
       // Update worker profile if user is a worker
-      if (userProfile?.role === 'worker') {
+      if (userProfile?.roles?.includes('worker')) {
         const workerData = {
           bio: profileData.bio,
           availability: profileData.availability,
@@ -141,7 +141,7 @@ const Profile = () => {
       });
       
       // Refresh the data
-      if (userProfile?.role === 'worker') {
+      if (userProfile?.roles?.includes('worker')) {
         fetchWorkerProfile();
       }
     } catch (error: any) {
@@ -200,11 +200,18 @@ const Profile = () => {
                   {userProfile?.full_name ? getInitials(userProfile.full_name) : <User className="h-8 w-8" />}
                 </div>
                 <CardTitle>{userProfile?.full_name || 'User Name'}</CardTitle>
-                <CardDescription>{userProfile?.role?.charAt(0).toUpperCase() + userProfile?.role?.slice(1) || 'User'}</CardDescription>
+                <CardDescription>
+                  {userProfile ? 
+                    (userProfile.roles?.map((role: string) => 
+                      role.charAt(0).toUpperCase() + role.slice(1)
+                    ).join(', ') || 'User')
+                    : 'User'
+                  }
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {userProfile?.role === 'worker' && (
+                  {userProfile?.roles?.includes('worker') && (
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Rating</span>
@@ -229,7 +236,7 @@ const Profile = () => {
               </CardContent>
             </Card>
 
-            {userProfile?.role === 'worker' && (
+            {userProfile?.roles?.includes('worker') && (
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle className="text-lg">Skills</CardTitle>
@@ -338,7 +345,7 @@ const Profile = () => {
                     </div>
                   </div>
 
-                  {userProfile?.role === 'worker' && (
+                  {userProfile?.roles?.includes('worker') && (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="bio">About Me</Label>

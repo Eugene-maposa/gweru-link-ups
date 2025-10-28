@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export const createAdminAccount = async (email: string, password: string, adminData: {
@@ -8,54 +7,55 @@ export const createAdminAccount = async (email: string, password: string, adminD
   location: string;
 }) => {
   try {
-    console.log('Creating admin account for:', email);
-    
     // First, sign up the user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/admin`,
+        data: {
+          full_name: adminData.fullName,
+          phone: adminData.phone,
+          national_id: adminData.nationalId,
+          location: adminData.location,
+          role: 'admin' // This will be inserted into user_roles table by trigger
+        }
       }
     });
 
     if (authError) {
-      console.error('Auth signup error:', authError);
       return { error: authError };
     }
 
     if (authData.user) {
-      console.log('Admin user created, now creating admin profile:', authData.user.id);
+      // Wait for trigger to create profile and role
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Wait a moment for the user to be fully created
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Verify admin role was created
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', authData.user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
       
-      // Create admin profile
+      if (roleError || !roleData) {
+        return { error: { message: 'Failed to create admin role. Please contact system administrator.' } };
+      }
+      
+      // Update approval status to approved for admin
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
-          id: authData.user.id,
-          email: email,
-          full_name: adminData.fullName,
-          phone: adminData.phone,
-          national_id: adminData.nationalId,
-          role: 'admin',
-          location: adminData.location,
-          approval_status: 'approved' // Admin is automatically approved
-        });
+        .update({ approval_status: 'approved' })
+        .eq('id', authData.user.id);
 
       if (profileError) {
-        console.error('Admin profile creation error:', profileError);
         return { error: profileError };
       }
-
-      console.log('Admin profile created successfully');
     }
 
-    console.log('Admin account creation completed successfully');
     return { error: null };
   } catch (error) {
-    console.error('Admin account creation error:', error);
     return { error };
   }
 };

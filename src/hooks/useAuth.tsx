@@ -7,12 +7,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userProfile: any;
+  userRoles: string[];
   loading: boolean;
   signUp: (email: string, password: string, userData: any) => Promise<{ error: any; data?: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInAsAdmin: (email: string, password: string) => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  hasRole: (role: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +23,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,8 +65,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserProfile = async (userId: string, retries = 3) => {
     try {
-      console.log('Fetching profile for user:', userId);
-      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -71,23 +72,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
       
       if (error) {
-        console.error('Error fetching profile:', error);
         if (retries > 0) {
-          console.log(`Retrying profile fetch, ${retries} attempts left`);
           setTimeout(() => fetchUserProfile(userId, retries - 1), 1000);
           return;
         }
         setUserProfile(null);
       } else if (profile) {
-        console.log('Profile fetched successfully:', profile);
         setUserProfile(profile);
+        
+        // Fetch user roles
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId);
+        
+        if (!rolesError && rolesData) {
+          setUserRoles(rolesData.map((r: any) => r.role));
+        }
       } else {
-        console.log('No profile found for user:', userId);
         setUserProfile(null);
       }
       setLoading(false);
     } catch (err) {
-      console.error('Error in profile fetch:', err);
       if (retries > 0) {
         setTimeout(() => fetchUserProfile(userId, retries - 1), 1000);
       } else {
@@ -95,6 +101,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       }
     }
+  };
+  
+  const hasRole = (role: string) => {
+    return userRoles.includes(role);
   };
 
   const signUp = async (email: string, password: string, userData: any) => {
@@ -240,11 +250,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       await supabase.auth.signOut();
       setUserProfile(null);
+      setUserRoles([]);
       setSession(null);
       setUser(null);
       setLoading(false);
     } catch (error) {
-      console.error('Signout error:', error);
       setLoading(false);
     }
   };
@@ -254,12 +264,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       session,
       userProfile,
+      userRoles,
       loading,
       signUp,
       signIn,
       signInAsAdmin,
       resetPassword,
-      signOut
+      signOut,
+      hasRole
     }}>
       {children}
     </AuthContext.Provider>

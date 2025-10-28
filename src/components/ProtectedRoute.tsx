@@ -14,7 +14,7 @@ const ProtectedRoute = ({
   requireApproval = false, 
   adminOnly = false 
 }: ProtectedRouteProps) => {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, hasRole, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,12 +29,12 @@ const ProtectedRoute = ({
         return;
       }
 
-      if (adminOnly && userProfile?.role !== 'admin') {
+      if (adminOnly && !hasRole('admin')) {
         navigate('/dashboard');
         return;
       }
     }
-  }, [user, userProfile, loading, navigate, requireApproval, adminOnly]);
+  }, [user, userProfile, hasRole, loading, navigate, requireApproval, adminOnly]);
 
   if (loading) {
     return (
@@ -52,7 +52,7 @@ const ProtectedRoute = ({
     return null;
   }
 
-  if (adminOnly && userProfile?.role !== 'admin') {
+  if (adminOnly && !hasRole('admin')) {
     return null;
   }
 

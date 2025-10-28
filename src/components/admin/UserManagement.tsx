@@ -46,7 +46,7 @@ const UserManagement = ({ allUsers, onApproval, onRoleChange, onRefresh, isRefre
 
     // Apply role filter
     if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
+      filtered = filtered.filter(user => user.roles?.includes(roleFilter));
     }
 
     // Apply sorting
@@ -165,7 +165,11 @@ const UserManagement = ({ allUsers, onApproval, onRoleChange, onRefresh, isRefre
                 <TableCell className="font-medium">{user.full_name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{user.role}</Badge>
+                  <div className="flex gap-1">
+                    {user.roles?.map((role: string) => (
+                      <Badge key={role} variant="outline">{role}</Badge>
+                    ))}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge 
@@ -199,7 +203,7 @@ const UserManagement = ({ allUsers, onApproval, onRoleChange, onRefresh, isRefre
                         </Button>
                       </div>
                     )}
-                    {user.approval_status === 'approved' && user.role !== 'admin' && (
+                    {user.approval_status === 'approved' && !user.roles?.includes('admin') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -209,11 +213,11 @@ const UserManagement = ({ allUsers, onApproval, onRoleChange, onRefresh, isRefre
                         Make Admin
                       </Button>
                     )}
-                    {user.role === 'admin' && (
+                    {user.roles?.includes('admin') && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onRoleChange(user.id, user.role === 'worker' ? 'employer' : 'worker')}
+                        onClick={() => onRoleChange(user.id, user.roles?.includes('worker') ? 'employer' : 'worker')}
                         className="text-orange-600 hover:bg-orange-50"
                       >
                         Remove Admin
