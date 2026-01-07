@@ -350,7 +350,11 @@ const Dashboard = () => {
     } else {
       return (
         <>
-          <Button className="w-full" onClick={() => navigate('/find-work')}>
+          <Button className="w-full" onClick={() => navigate('/post-services')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Post My Services
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => navigate('/find-work')}>
             <Search className="h-4 w-4 mr-2" />
             Find Work
           </Button>
