@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import FindWork from "./pages/FindWork";
 import JobDetails from "./pages/JobDetails";
 import HireWorkers from "./pages/HireWorkers";
+import PostServices from "./pages/PostServices";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -64,6 +65,11 @@ const App = () => (
             <Route path="/hire-workers" element={
               <ProtectedRoute requireApproval>
                 <HireWorkers />
+              </ProtectedRoute>
+            } />
+            <Route path="/post-services" element={
+              <ProtectedRoute requireApproval>
+                <PostServices />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
