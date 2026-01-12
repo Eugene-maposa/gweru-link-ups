@@ -106,7 +106,9 @@ const FindWork = () => {
                 </Button>
                 <h1 className="text-3xl font-bold text-gray-900">Find Work</h1>
               </div>
-              <p className="text-gray-600 mt-1">Discover job opportunities in your area</p>
+              <p className="text-gray-600 mt-1">
+                Browse <span className="font-semibold text-green-600">available job listings</span> posted by employers in Gweru
+              </p>
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant="secondary" className="text-sm">
@@ -118,14 +120,31 @@ const FindWork = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Info Banner */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">For Job Seekers</h3>
+              <p className="text-sm text-green-700 mt-1">
+                These are <strong>job openings</strong> posted by employers. Apply to jobs that match your skills and experience.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Search and Filter Section */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Search className="h-5 w-5 mr-2" />
-              Search Jobs
+              Browse Job Openings
             </CardTitle>
-            <CardDescription>Find the perfect job opportunity</CardDescription>
+            <CardDescription>Find jobs posted by employers looking to hire</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
