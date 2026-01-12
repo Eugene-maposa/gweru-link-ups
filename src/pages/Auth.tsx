@@ -422,8 +422,8 @@ const Auth = () => {
       <div className="absolute inset-0 bg-black/40"></div>
       <Card className="w-full max-w-md relative z-10">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">BulawayoJobs</CardTitle>
-          <CardDescription>Join our community of workers and employers</CardDescription>
+          <CardTitle className="text-2xl">GweruJobs</CardTitle>
+          <CardDescription>Join our community of workers and employers in Gweru</CardDescription>
         </CardHeader>
         <CardContent>
           {successMessage && (
@@ -680,19 +680,20 @@ const Auth = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="location">Area in Bulawayo *</Label>
+                  <Label htmlFor="location">Area in Gweru *</Label>
                   <Select value={signUpData.location} onValueChange={(value) => setSignUpData({...signUpData, location: value})} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select your area" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="city-center">City Center</SelectItem>
-                      <SelectItem value="suburbs">Suburbs</SelectItem>
-                      <SelectItem value="kumalo">Kumalo</SelectItem>
-                      <SelectItem value="luveve">Luveve</SelectItem>
-                      <SelectItem value="nkulumane">Nkulumane</SelectItem>
-                      <SelectItem value="mpopoma">Mpopoma</SelectItem>
-                      <SelectItem value="entumbane">Entumbane</SelectItem>
+                      <SelectItem value="mkoba">Mkoba</SelectItem>
+                      <SelectItem value="mambo">Mambo</SelectItem>
+                      <SelectItem value="senga">Senga</SelectItem>
+                      <SelectItem value="mtapa">Mtapa</SelectItem>
+                      <SelectItem value="ascot">Ascot</SelectItem>
+                      <SelectItem value="southdowns">Southdowns</SelectItem>
+                      <SelectItem value="kopje">Kopje</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
