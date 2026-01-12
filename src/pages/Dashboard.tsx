@@ -806,7 +806,7 @@ const Dashboard = () => {
                       <div className="border-l-4 border-blue-500 pl-4">
                         <p className="font-medium">Profile approved</p>
                         <p className="text-sm text-gray-600">Your account has been approved by the admin</p>
-                        <p className="text-xs text-gray-500">Welcome to BulawayoJobs!</p>
+                        <p className="text-xs text-gray-500">Welcome to GweruJobs!</p>
                       </div>
                       {userProfile?.role === 'worker' && dashboardStats.totalApplications > 0 && (
                         <div className="border-l-4 border-green-500 pl-4">
