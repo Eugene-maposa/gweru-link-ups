@@ -24,7 +24,7 @@ const Index = () => {
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <Briefcase className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">BulawayoJobs</h1>
+              <h1 className="text-2xl font-bold text-gray-900">GweruJobs</h1>
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/auth">
@@ -49,10 +49,10 @@ const Index = () => {
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
             Connect Workers & Employers
             <br />
-            <span className="text-blue-400">in Bulawayo</span>
+            <span className="text-blue-400">in Gweru</span>
           </h1>
           <p className="text-xl text-gray-100 mb-8 max-w-3xl mx-auto">
-            Join the leading platform that connects skilled workers with employers in Bulawayo. 
+            Join the leading platform that connects skilled workers with employers in Gweru. 
             Find work opportunities or hire trusted workers with verified credentials.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -99,7 +99,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600">
-                Focused specifically on Bulawayo area, connecting local workers with local employers.
+                Focused specifically on Gweru area, connecting local workers with local employers.
               </p>
             </CardContent>
           </Card>
@@ -160,7 +160,7 @@ const Index = () => {
             <CardContent className="p-8">
               <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
               <p className="text-blue-100 mb-6">
-                Join thousands of workers and employers already using BulawayoJobs
+                Join thousands of workers and employers already using GweruJobs
               </p>
               <Link to="/auth">
                 <Button size="lg" variant="secondary">

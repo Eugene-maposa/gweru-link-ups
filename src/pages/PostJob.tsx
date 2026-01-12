@@ -213,12 +213,13 @@ const PostJob = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="city-center">City Center</SelectItem>
-                    <SelectItem value="suburbs">Suburbs</SelectItem>
-                    <SelectItem value="kumalo">Kumalo</SelectItem>
-                    <SelectItem value="luveve">Luveve</SelectItem>
-                    <SelectItem value="nkulumane">Nkulumane</SelectItem>
-                    <SelectItem value="mpopoma">Mpopoma</SelectItem>
-                    <SelectItem value="entumbane">Entumbane</SelectItem>
+                    <SelectItem value="mkoba">Mkoba</SelectItem>
+                    <SelectItem value="mambo">Mambo</SelectItem>
+                    <SelectItem value="senga">Senga</SelectItem>
+                    <SelectItem value="mtapa">Mtapa</SelectItem>
+                    <SelectItem value="ascot">Ascot</SelectItem>
+                    <SelectItem value="southdowns">Southdowns</SelectItem>
+                    <SelectItem value="kopje">Kopje</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
