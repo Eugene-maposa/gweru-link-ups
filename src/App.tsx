@@ -37,11 +37,36 @@ const App = () => (
                 <Dashboard />
               </ProtectedRoute>
             } />
+            {/* Employer-only routes */}
             <Route path="/post-job" element={
-              <ProtectedRoute requireApproval>
+              <ProtectedRoute requireApproval allowedRoles={['employer']}>
                 <PostJob />
               </ProtectedRoute>
             } />
+            <Route path="/hire-workers" element={
+              <ProtectedRoute requireApproval allowedRoles={['employer']}>
+                <HireWorkers />
+              </ProtectedRoute>
+            } />
+            
+            {/* Worker-only routes */}
+            <Route path="/find-work" element={
+              <ProtectedRoute requireApproval allowedRoles={['worker']}>
+                <FindWork />
+              </ProtectedRoute>
+            } />
+            <Route path="/job/:id" element={
+              <ProtectedRoute requireApproval allowedRoles={['worker']}>
+                <JobDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/post-services" element={
+              <ProtectedRoute requireApproval allowedRoles={['worker']}>
+                <PostServices />
+              </ProtectedRoute>
+            } />
+            
+            {/* Shared routes */}
             <Route path="/messages" element={
               <ProtectedRoute requireApproval>
                 <Messages />
@@ -50,26 +75,6 @@ const App = () => (
             <Route path="/profile" element={
               <ProtectedRoute requireApproval>
                 <Profile />
-              </ProtectedRoute>
-            } />
-            <Route path="/find-work" element={
-              <ProtectedRoute requireApproval>
-                <FindWork />
-              </ProtectedRoute>
-            } />
-            <Route path="/job/:id" element={
-              <ProtectedRoute requireApproval>
-                <JobDetails />
-              </ProtectedRoute>
-            } />
-            <Route path="/hire-workers" element={
-              <ProtectedRoute requireApproval>
-                <HireWorkers />
-              </ProtectedRoute>
-            } />
-            <Route path="/post-services" element={
-              <ProtectedRoute requireApproval>
-                <PostServices />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={

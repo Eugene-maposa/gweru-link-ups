@@ -334,13 +334,18 @@ const Dashboard = () => {
     } else if (userProfile?.role === 'employer') {
       return (
         <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
+            <p className="text-xs text-blue-700 font-medium">As an Employer, you can:</p>
+            <p className="text-xs text-blue-600">• Post jobs for workers to apply</p>
+            <p className="text-xs text-blue-600">• Browse job seekers looking for work</p>
+          </div>
           <Button className="w-full" onClick={() => navigate('/post-job')}>
             <Plus className="h-4 w-4 mr-2" />
             Post a Job
           </Button>
           <Button variant="outline" className="w-full" onClick={() => navigate('/hire-workers')}>
             <Search className="h-4 w-4 mr-2" />
-            Hire Workers
+            Browse Job Seekers
           </Button>
           <Button variant="outline" className="w-full" onClick={() => navigate('/messages')}>
             Messages
@@ -350,13 +355,18 @@ const Dashboard = () => {
     } else {
       return (
         <>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-2">
+            <p className="text-xs text-green-700 font-medium">As a Worker, you can:</p>
+            <p className="text-xs text-green-600">• Create your profile for employers to find</p>
+            <p className="text-xs text-green-600">• Browse and apply for available jobs</p>
+          </div>
           <Button className="w-full" onClick={() => navigate('/post-services')}>
             <Plus className="h-4 w-4 mr-2" />
-            Post My Services
+            Create My Worker Profile
           </Button>
           <Button variant="outline" className="w-full" onClick={() => navigate('/find-work')}>
             <Search className="h-4 w-4 mr-2" />
-            Find Work
+            Browse Available Jobs
           </Button>
           <Button variant="outline" className="w-full" onClick={() => navigate('/messages')}>
             Messages

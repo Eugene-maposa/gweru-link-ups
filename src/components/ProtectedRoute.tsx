@@ -7,12 +7,14 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requireApproval?: boolean;
   adminOnly?: boolean;
+  allowedRoles?: ('worker' | 'employer' | 'admin')[];
 }
 
 const ProtectedRoute = ({ 
   children, 
   requireApproval = false, 
-  adminOnly = false 
+  adminOnly = false,
+  allowedRoles
 }: ProtectedRouteProps) => {
   const { user, userProfile, hasRole, loading } = useAuth();
   const navigate = useNavigate();
@@ -33,8 +35,17 @@ const ProtectedRoute = ({
         navigate('/dashboard');
         return;
       }
+
+      // Check role-based access
+      if (allowedRoles && allowedRoles.length > 0 && userProfile?.role) {
+        const hasAllowedRole = allowedRoles.includes(userProfile.role) || hasRole('admin');
+        if (!hasAllowedRole) {
+          navigate('/dashboard');
+          return;
+        }
+      }
     }
-  }, [user, userProfile, hasRole, loading, navigate, requireApproval, adminOnly]);
+  }, [user, userProfile, hasRole, loading, navigate, requireApproval, adminOnly, allowedRoles]);
 
   if (loading) {
     return (
@@ -54,6 +65,14 @@ const ProtectedRoute = ({
 
   if (adminOnly && !hasRole('admin')) {
     return null;
+  }
+
+  // Check role-based access
+  if (allowedRoles && allowedRoles.length > 0 && userProfile?.role) {
+    const hasAllowedRole = allowedRoles.includes(userProfile.role) || hasRole('admin');
+    if (!hasAllowedRole) {
+      return null;
+    }
   }
 
   return <>{children}</>;
