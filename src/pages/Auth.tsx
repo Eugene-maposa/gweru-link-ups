@@ -545,7 +545,7 @@ const Auth = () => {
                   <Label htmlFor="fullName">Full Name *</Label>
                   <Input 
                     id="fullName" 
-                    placeholder="John Doe" 
+                    placeholder="Timukudze Gumbo" 
                     value={signUpData.fullName}
                     onChange={(e) => setSignUpData({...signUpData, fullName: e.target.value})}
                     required 
