@@ -38,18 +38,43 @@ const handler = async (req: Request): Promise<Response> => {
     const approveToken = crypto.randomUUID();
     const rejectToken = crypto.randomUUID();
 
-    // Store tokens in database for verification
-    const { error: tokenError } = await supabase
-      .from('approval_tokens')
-      .insert([{
-        user_id: userId,
-        approve_token: approveToken,
-        reject_token: rejectToken,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-      }]);
+    // Wait for profile to be created by trigger before storing tokens
+    // Retry logic to handle timing issues
+    let tokenStored = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Check if profile exists
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (profile) {
+        // Profile exists, store tokens
+        const { error: tokenError } = await supabase
+          .from('approval_tokens')
+          .insert([{
+            user_id: userId,
+            approve_token: approveToken,
+            reject_token: rejectToken,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+          }]);
 
-    if (tokenError) {
-      console.error('Error storing approval tokens:', tokenError);
+        if (tokenError) {
+          console.error('Error storing approval tokens:', tokenError);
+        } else {
+          tokenStored = true;
+          console.log('Approval tokens stored successfully');
+        }
+        break;
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    if (!tokenStored) {
+      console.warn('Could not store approval tokens - profile may not exist yet');
     }
 
     const adminEmail = 'mapseujers@gmail.com'; // Eugene Maposa's email

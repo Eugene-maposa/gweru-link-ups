@@ -150,6 +150,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (authData.user) {
         console.log('User created successfully:', authData.user.id);
         
+        // Send welcome email to user
+        try {
+          const { error: welcomeError } = await supabase.functions.invoke('send-user-welcome', {
+            body: {
+              userEmail: email,
+              fullName: userData.fullName,
+              role: userData.role
+            }
+          });
+          
+          if (welcomeError) {
+            console.error('Welcome email error:', welcomeError);
+          } else {
+            console.log('Welcome email sent successfully to user');
+          }
+        } catch (welcomeError) {
+          console.error('Failed to send welcome email:', welcomeError);
+        }
+        
         // Notify admin about new registration
         try {
           const { error: notifyError } = await supabase.functions.invoke('notify-admin-registration', {
