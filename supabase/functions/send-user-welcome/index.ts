@@ -1,5 +1,15 @@
+// cspell:ignore apikey Gweru
+// @ts-ignore - remote Deno std import resolved at deploy time
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore - npm: spec is handled by Deno deploy/runtime
 import { Resend } from "npm:resend@2.0.0";
+
+// Provide a minimal Deno typing for local tooling; real runtime is Deno edge.
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -23,6 +33,9 @@ const handler = async (req: Request): Promise<Response> => {
     const { userEmail, fullName, role }: WelcomeEmailRequest = await req.json();
 
     console.log('Sending welcome email to user:', userEmail);
+
+    // Prefer configured app URL; fall back to local dev host.
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") ?? "http://localhost:5173";
 
     const emailResponse = await resend.emails.send({
       from: "GweruJobs <noreply@resend.dev>",
@@ -59,7 +72,7 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://id-preview--31d30469-ab2a-4307-aaac-5ecd4b4d9715.lovable.app/auth" 
+            <a href="${appBaseUrl.replace(/\/$/, '')}/auth" 
                style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               Sign In to Your Account
             </a>
