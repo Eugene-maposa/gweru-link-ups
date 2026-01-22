@@ -1,7 +1,10 @@
 
+// @ts-ignore - remote Deno std import resolved at deploy time
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.10';
+// @ts-ignore - esm.sh import resolved at deploy time
+import { Resend } from "https://esm.sh/resend@2.0.0";
+// @ts-ignore - esm.sh import resolved at deploy time
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.10";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
